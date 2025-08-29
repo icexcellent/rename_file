@@ -8,6 +8,7 @@ __pycache__/
 
 # 虚拟环境
 .venv/
+
 venv/
 env/
 
@@ -28,3 +29,12 @@ test_file/
 # 系统文件
 .DS_Store
 Thumbs.db
+
+# 构建/打包产物（防止大文件入库）
+dist/
+build/
+*.spec
+*.app/
+*.pkg
+*.dmg
+*.exe
