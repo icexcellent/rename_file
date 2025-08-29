@@ -1,0 +1,30 @@
+# 配置文件（包含敏感信息）
+config.json
+
+# Python缓存文件
+__pycache__/
+*.py[cod]
+*$py.class
+
+# 虚拟环境
+.venv/
+venv/
+env/
+
+# IDE文件
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# 临时文件
+*.tmp
+*.temp
+*.log
+
+# 测试文件
+test_file/
+
+# 系统文件
+.DS_Store
+Thumbs.db
