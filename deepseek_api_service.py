@@ -160,10 +160,26 @@ class DeepSeekAPIService:
     def _analyze_image_directly(self, image_path: Path) -> Optional[str]:
         """直接使用DeepSeek API分析图片，不依赖本地OCR"""
         try:
+            # 检查图片大小
+            file_size = image_path.stat().st_size
+            if file_size > 10 * 1024 * 1024:  # 10MB 限制
+                msg = f"图片文件过大 ({file_size / 1024 / 1024:.1f}MB)，超过 API 限制"
+                self._set_error(msg, "请使用小于 10MB 的图片文件")
+                print(msg)
+                return None
+            
             # 读取图片并转为base64
             with open(image_path, 'rb') as f:
                 image_data = f.read()
                 b64 = base64.b64encode(image_data).decode('utf-8')
+                
+            # 验证 base64 数据
+            if len(b64) > 5000000:  # 5MB base64 限制
+                msg = f"base64 数据过大 ({len(b64)} 字符)，可能超出 API 限制"
+                self._set_error(msg, "请使用较小的图片文件")
+                print(msg)
+                return None
+                
             return self._analyze_image_base64(b64, image_path)
         except Exception as e:
             msg = f"图片直接分析失败: {e}"
@@ -177,9 +193,8 @@ class DeepSeekAPIService:
             # 简化提示词，避免复杂的格式要求
             prompt = "请分析这张图片，提取关键信息用于文件重命名。直接返回重命名后的文件名，格式为：基金名称-文档类型-日期"
             
-            # 尝试多种 Vision API 格式
-            # 格式1: 标准格式
-            data1 = {
+            # 使用简化的 Vision API 格式
+            data = {
                 "model": "deepseek-vl",
                 "messages": [
                     {
@@ -193,37 +208,12 @@ class DeepSeekAPIService:
                 "max_tokens": 300,
                 "temperature": 0.1
             }
-            
-            # 格式2: 简化格式 - 修复 messages 结构
-            data2 = {
-                "model": "deepseek-vl",
-                "messages": [
-                    {
-                        "role": "user",
-                        "content": [
-                            {"type": "text", "text": prompt},
-                            {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}}
-                        ]
-                    }
-                ],
-                "max_tokens": 300,
-                "temperature": 0.1
-            }
-            
-            # 先尝试格式1，失败则尝试格式2
-            data = data1
             
             headers = {"Authorization": f"Bearer {self.api_key}", "Content-Type": "application/json"}
 
             for attempt in range(self.max_retries):
                 try:
                     print(f"尝试调用 Vision API (第{attempt + 1}次)...")
-                    
-                    # 如果是第二次尝试且第一次失败，尝试格式2
-                    if attempt == 1 and response.status_code == 422:
-                        print("第一次尝试失败，切换到格式2...")
-                        data = data2
-                    
                     response = requests.post(self.vision_url, headers=headers, json=data, timeout=45)
                     
                     if response.status_code == 200:
