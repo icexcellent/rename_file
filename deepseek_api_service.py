@@ -160,18 +160,18 @@ class DeepSeekAPIService:
     def _analyze_image_directly(self, image_path: Path) -> Optional[str]:
         """直接使用DeepSeek API分析图片，不依赖本地OCR"""
         try:
-            # 读取图片并转为base64，添加验证
-            with open(image_path, 'rb') as f:
-                image_data = f.read()
-                b64 = base64.b64encode(image_data).decode('utf-8')
-                
-            # 验证 base64 数据
-            if len(b64) > 1000000:  # 如果 base64 数据过大，可能有问题
-                print(f"警告: base64 数据过大 ({len(b64)} 字符)")
-                self._set_error("图片文件过大", "建议使用较小的图片文件或等待 Vision API 支持")
-                return None
-                
-            return self._analyze_image_base64(b64, image_path)
+            # 暂时禁用 Vision API，因为 DeepSeek 的 Vision 模型格式要求特殊
+            # 根据错误信息，当前的请求格式不被支持
+            msg = "DeepSeek Vision API 格式要求特殊，暂不可用"
+            self._set_error(msg, "建议使用文本版文档或等待官方 Vision API 文档发布")
+            print(msg)
+            return None
+            
+            # 保留原代码供将来启用
+            # with open(image_path, 'rb') as f:
+            #     image_data = f.read()
+            #     b64 = base64.b64encode(image_data).decode('utf-8')
+            # return self._analyze_image_base64(b64, image_path)
         except Exception as e:
             msg = f"图片直接分析失败: {e}"
             print(msg)
