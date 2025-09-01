@@ -18,6 +18,7 @@ class DeepSeekAPIService:
     def __init__(self):
         self.api_key = self._load_api_key()
         self.base_url = "https://api.deepseek.com/v1/chat/completions"
+        self.vision_url = "https://api.deepseek.com/v1/chat/completions"  # Vision 也使用 chat completions 端点
         self.model = "deepseek-chat"
         self.max_retries = 3
         self.last_error: Optional[str] = None
@@ -172,10 +173,10 @@ class DeepSeekAPIService:
     def _analyze_image_base64(self, base64_image: str, src_path: Path) -> Optional[str]:
         """通过 Vision 模型分析 base64 图片。"""
         try:
-            prompt = (
-                f"请分析这张图片，提取关键信息用于文件重命名。直接返回‘基金名称-文档类型-日期.{src_path.suffix.lstrip('.')}’格式的文件名；"
-                "若无法识别请返回‘无法识别’。"
-            )
+            # 简化提示词，避免复杂的格式要求
+            prompt = "请分析这张图片，提取关键信息用于文件重命名。直接返回重命名后的文件名，格式为：基金名称-文档类型-日期"
+            
+            # 使用更简单的请求结构
             data = {
                 "model": "deepseek-vl",
                 "messages": [
@@ -183,36 +184,47 @@ class DeepSeekAPIService:
                         "role": "user",
                         "content": [
                             {"type": "text", "text": prompt},
-                            {
-                                "type": "image_url",
-                                "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}
-                            }
+                            {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}}
                         ]
                     }
                 ],
-                "max_tokens": 500,
+                "max_tokens": 300,
                 "temperature": 0.1
             }
+            
             headers = {"Authorization": f"Bearer {self.api_key}", "Content-Type": "application/json"}
 
             for attempt in range(self.max_retries):
                 try:
-                    response = requests.post(self.base_url, headers=headers, json=data, timeout=45)
+                    print(f"尝试调用 Vision API (第{attempt + 1}次)...")
+                    response = requests.post(self.vision_url, headers=headers, json=data, timeout=45)
+                    
                     if response.status_code == 200:
                         result = response.json()
                         if 'choices' in result and result['choices']:
-                            return result['choices'][0]['message']['content'].strip()
+                            content = result['choices'][0]['message']['content'].strip()
+                            print(f"Vision API 调用成功: {content}")
+                            return content
                     else:
                         err = f"Vision调用失败[{response.status_code}]: {response.text[:200]}"
                         print(err)
                         self._set_error(err, "请确认已开通 Vision 权限且传参格式为 chat.completions")
+                        
+                        # 如果是格式错误，尝试调试
+                        if response.status_code == 422:
+                            print(f"请求数据: {data}")
+                            print(f"完整错误: {response.text}")
+                            
                 except requests.exceptions.RequestException as e:
                     err = f"Vision请求异常: {e}"
                     print(err)
                     self._set_error(err, "检查网络与代理设置，稍后重试")
+                    
                 if attempt < self.max_retries - 1:
                     time.sleep(2)
+                    
             return None
+            
         except Exception as e:
             self._set_error(f"Vision内部错误: {e}")
             return None
