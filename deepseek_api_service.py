@@ -160,18 +160,11 @@ class DeepSeekAPIService:
     def _analyze_image_directly(self, image_path: Path) -> Optional[str]:
         """直接使用DeepSeek API分析图片，不依赖本地OCR"""
         try:
-            # 暂时禁用 Vision API，因为 DeepSeek 的 Vision 模型格式要求特殊
-            # 根据错误信息，当前的请求格式不被支持
-            msg = "DeepSeek Vision API 格式要求特殊，暂不可用"
-            self._set_error(msg, "建议使用文本版文档或等待官方 Vision API 文档发布")
-            print(msg)
-            return None
-            
-            # 保留原代码供将来启用
-            # with open(image_path, 'rb') as f:
-            #     image_data = f.read()
-            #     b64 = base64.b64encode(image_data).decode('utf-8')
-            # return self._analyze_image_base64(b64, image_path)
+            # 读取图片并转为base64
+            with open(image_path, 'rb') as f:
+                image_data = f.read()
+                b64 = base64.b64encode(image_data).decode('utf-8')
+            return self._analyze_image_base64(b64, image_path)
         except Exception as e:
             msg = f"图片直接分析失败: {e}"
             print(msg)
@@ -201,17 +194,14 @@ class DeepSeekAPIService:
                 "temperature": 0.1
             }
             
-            # 格式2: 简化格式
+            # 格式2: 简化格式 - 修复 messages 结构
             data2 = {
                 "model": "deepseek-vl",
                 "messages": [
                     {
                         "role": "user",
-                        "content": prompt
-                    },
-                    {
-                        "role": "user",
                         "content": [
+                            {"type": "text", "text": prompt},
                             {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}}
                         ]
                     }
