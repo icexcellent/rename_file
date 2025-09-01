@@ -373,11 +373,22 @@ class DeepSeekAPIService:
                         print(f"API调用失败，状态码: {response.status_code}")
                         print(f"错误信息: {response.text}")
                         
+                        # 设置错误信息
+                        if response.status_code == 401:
+                            self._set_error("API 密钥无效或已过期", "请检查并更新 API 密钥")
+                        elif response.status_code == 429:
+                            self._set_error("API 调用频率超限", "请稍后重试或检查配额使用情况")
+                        elif response.status_code >= 500:
+                            self._set_error("DeepSeek 服务器错误", "请稍后重试")
+                        else:
+                            self._set_error(f"API 调用失败 ({response.status_code})", "请检查网络连接和 API 状态")
+                        
                 except requests.exceptions.RequestException as e:
                     print(f"第{attempt + 1}次尝试失败: {e}")
                     if attempt < self.max_retries - 1:
                         time.sleep(2)
                     else:
+                        self._set_error(f"网络请求失败: {e}", "请检查网络连接和代理设置")
                         raise e
             
             return None
