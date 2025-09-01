@@ -20,6 +20,12 @@ class DeepSeekAPIService:
         self.base_url = "https://api.deepseek.com/v1/chat/completions"
         self.model = "deepseek-chat"
         self.max_retries = 3
+        self.last_error: Optional[str] = None
+        self.last_suggestion: Optional[str] = None
+
+    def _set_error(self, error: str, suggestion: Optional[str] = None) -> None:
+        self.last_error = error
+        self.last_suggestion = suggestion
     
     def _load_api_key(self) -> Optional[str]:
         """从配置文件加载API密钥"""
@@ -52,25 +58,36 @@ class DeepSeekAPIService:
         """分析文档内容，提取关键信息用于重命名"""
         if not self.is_available():
             print("DeepSeek API密钥未配置")
+            self._set_error("DeepSeek API密钥未配置", "请在应用配置页填写有效的 API Key 并点击‘测试API’")
             return None
 
         try:
             # 读取文件内容
-            if file_path.suffix.lower() == '.pdf':
-                content = self._read_pdf_content(file_path)
-            elif file_path.suffix.lower() in ['.jpg', '.jpeg', '.png', '.bmp']:
-                # 对于图片文件，直接使用DeepSeek API的图片分析功能
+            suffix = file_path.suffix.lower()
+            if suffix in ['.jpg', '.jpeg', '.png', '.bmp', '.tif', '.tiff']:
+                # 图片 → Vision
                 return self._analyze_image_directly(file_path)
-            else:
-                content = self._read_text_content(file_path)
 
-            if not content:
-                print(f"无法读取文件内容: {file_path}")
-                print("使用文件名分析作为备选方案...")
-                return self._extract_from_filename(file_path)
+            if suffix == '.pdf':
+                content = self._read_pdf_content(file_path)
+                if content:
+                    return self._call_deepseek_api(content, file_path.name)
+                # 若无文本，尝试渲染第一页为图片后走 Vision
+                b64_png = self._render_pdf_first_page_base64(file_path)
+                if b64_png:
+                    return self._analyze_image_base64(b64_png, file_path)
+                self._set_error(
+                    "PDF为扫描版且缺少渲染依赖，无法提取文本",
+                    "建议安装 PyMuPDF: pip install pymupdf；或提供文本版PDF后重试"
+                )
+                return None
 
-            # 调用DeepSeek API分析内容
-            return self._call_deepseek_api(content, file_path.name)
+            # 其他文本类文件 → 读取文本后走 Chat
+            content = self._read_text_content(file_path)
+            if content:
+                return self._call_deepseek_api(content, file_path.name)
+            self._set_error("无法读取文本内容", "请确认文件编码或改用 PDF/图片后重试")
+            return None
 
         except Exception as e:
             print(f"DeepSeek API分析失败: {e}")
@@ -142,141 +159,106 @@ class DeepSeekAPIService:
     def _analyze_image_directly(self, image_path: Path) -> Optional[str]:
         """直接使用DeepSeek API分析图片，不依赖本地OCR"""
         try:
-            # 由于Vision API格式问题，直接使用文件名分析
-            print("Vision API暂不可用，使用文件名分析...")
-            return self._extract_from_filename(image_path)
-            
-            # 原Vision API代码已注释（格式问题）
-            # import base64
-            # with open(image_path, 'rb') as image_file:
-            #     image_data = image_file.read()
-            #     base64_image = base64.b64encode(image_data).decode('utf-8')
-            # 
-            # # 构建包含图片的提示词
-            # prompt = f"""
-            # 请分析这张图片，提取关键信息用于文件重命名。
-            # 
-            # 文件名: {image_path.name}
-            # 
-            # 请按照以下格式提取信息：
-            # 1. 基金名称（如：展弘稳进1号7期私募基金）
-            # 2. 文档类型（如：临时开放日公告、打款凭证、基本信息表）
-            # 3. 相关日期（如：2025年8月22日）
-            # 4. 客户姓名（如果有）
-            # 
-            # 请直接返回重命名后的文件名，格式为：
-            # 基金名称-文档类型-日期.扩展名
-            # 
-            # 例如：展弘稳进1号7期私募基金-临时开放日公告-20250822.jpg
-            # 
-            # 如果无法提取到足够信息，请返回"无法识别"。
-            # """
-            # 
-            # # 准备请求数据
-            # data = {
-            #     "model": "deepseek-vision",
-            #     "messages": [
-            #         {
-            #             "role": "user",
-            #             "content": [
-            #                 {
-            #                     "type": "text",
-            #                     "text": prompt
-            #                 },
-            #                 {
-            #                     "type": "image_url",
-            #                     "image_url": {
-            #                         "url": f"data:image/jpeg;base64,{base64_image}"
-            #                     }
-            #                 }
-            #             ]
-            #         }
-            #     ],
-            #     "max_tokens": 500,
-            #     "temperature": 0.1
-            # }
-            # 
-            # headers = {
-            #     "Authorization": f"Bearer {self.api_key}",
-            #     "Content-Type": "application/json"
-            # }
-            # 
-            # # 发送请求
-            # for attempt in range(self.max_retries):
-            #     try:
-            #         print(f"调用DeepSeek Vision API (第{attempt + 1}次)...")
-            #         response = requests.post(
-            #             self.base_url,
-            #             headers=headers,
-            #             json=data,
-            #             timeout=30
-            #         )
-            #         
-            #         if response.status_code == 200:
-            #             result = response.json()
-            #             if 'choices' in result and len(result['choices']) > 0:
-            #                 content = result['choices'][0]['message']['content']
-            #                 print(f"DeepSeek Vision API调用成功！")
-            #                 return content.strip()
-            #         else:
-            #             print(f"Vision API调用失败，状态码: {response.status_code}")
-            #             print(f"错误信息: {response.text}")
-            #             
-            #             # 如果Vision API不可用，尝试使用文件名分析
-            #             if response.status_code == 400:
-            #                 print("Vision API不可用，使用文件名分析...")
-            #                 return self._extract_from_filename(image_path)
-            #     
-            #     except requests.exceptions.RequestException as e:
-            #         print(f"第{attempt + 1}次尝试失败: {e}")
-            #         if attempt < self.max_retries - 1:
-            #             import time
-            #             time.sleep(2)
-            #         else:
-            #             raise e
-            # 
-            # return None
-            
+            # 读取图片并转为base64
+            with open(image_path, 'rb') as f:
+                b64 = base64.b64encode(f.read()).decode('utf-8')
+            return self._analyze_image_base64(b64, image_path)
         except Exception as e:
-            print(f"图片直接分析失败: {e}")
-            # 回退到文件名分析
-            return self._extract_from_filename(image_path)
+            msg = f"图片直接分析失败: {e}"
+            print(msg)
+            self._set_error(msg, "请确认网络可达且 API Key 有效；必要时重试")
+            return None
+
+    def _analyze_image_base64(self, base64_image: str, src_path: Path) -> Optional[str]:
+        """通过 Vision 模型分析 base64 图片。"""
+        try:
+            prompt = (
+                f"请分析这张图片，提取关键信息用于文件重命名。直接返回‘基金名称-文档类型-日期.{src_path.suffix.lstrip('.')}’格式的文件名；"
+                "若无法识别请返回‘无法识别’。"
+            )
+            data = {
+                "model": "deepseek-vision",
+                "messages": [
+                    {
+                        "role": "user",
+                        "content": [
+                            {"type": "text", "text": prompt},
+                            {
+                                "type": "image_url",
+                                "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}
+                            },
+                        ],
+                    }
+                ],
+                "max_tokens": 500,
+                "temperature": 0.1,
+            }
+            headers = {"Authorization": f"Bearer {self.api_key}", "Content-Type": "application/json"}
+
+            for attempt in range(self.max_retries):
+                try:
+                    response = requests.post(self.base_url, headers=headers, json=data, timeout=45)
+                    if response.status_code == 200:
+                        result = response.json()
+                        if 'choices' in result and result['choices']:
+                            return result['choices'][0]['message']['content'].strip()
+                    else:
+                        err = f"Vision调用失败[{response.status_code}]: {response.text[:200]}"
+                        print(err)
+                        self._set_error(err, "请确认已开通 Vision 权限且传参格式为 chat.completions")
+                except requests.exceptions.RequestException as e:
+                    err = f"Vision请求异常: {e}"
+                    print(err)
+                    self._set_error(err, "检查网络与代理设置，稍后重试")
+                if attempt < self.max_retries - 1:
+                    time.sleep(2)
+            return None
+        except Exception as e:
+            self._set_error(f"Vision内部错误: {e}")
+            return None
+
+    def _render_pdf_first_page_base64(self, pdf_path: Path) -> Optional[str]:
+        """将PDF第一页渲染为PNG并返回base64，需要PyMuPDF。"""
+        try:
+            import fitz  # PyMuPDF
+            doc = fitz.open(str(pdf_path))
+            if len(doc) == 0:
+                return None
+            page = doc[0]
+            pix = page.get_pixmap(matrix=fitz.Matrix(2, 2))
+            img_bytes = pix.tobytes("png")
+            doc.close()
+            return base64.b64encode(img_bytes).decode('utf-8')
+        except ImportError:
+            return None
+        except Exception:
+            return None
     
     def _extract_from_filename(self, file_path: Path) -> Optional[str]:
-        """从文件名提取信息作为备选方案"""
+        """从文件名提取信息（通用启发式，无硬编码样本）。"""
         try:
             filename = file_path.stem
             suffix = file_path.suffix
-            
-            # 提取日期信息
-            import re
-            date_pattern = r'(\d{4})(\d{2})(\d{2})'
-            date_match = re.search(date_pattern, filename)
-            
-            if date_match:
-                year, month, day = date_match.groups()
-                date_str = f"{year}{month}{day}"
-                
-                # 根据文件名特征构建更有意义的名称
-                if "微信图片" in filename:
-                    # 微信图片通常是打款凭证或相关文档
-                    return f"展弘基金-打款凭证-{date_str}{suffix}"
-                elif "20250822101923" in filename:
-                    # 这个特定的PDF文件，根据用户期望
-                    return f"展弘稳进1号7期私募基金-临时开放日公告-{date_str}{suffix}"
-                else:
-                    # 其他文档
-                    return f"展弘基金-文档-{date_str}{suffix}"
-            
-            # 如果没有日期，尝试其他模式
-            if "微信图片" in filename:
-                return f"展弘基金-微信图片{suffix}"
-            elif "20250822101923" in filename:
-                return f"展弘稳进1号7期私募基金-临时开放日公告-20250822{suffix}"
-            
-            # 如果都没有匹配，返回None让其他方法处理
-            return None
-            
+
+            # 使用通用启发式从文件名中提取字段
+            doc_type = self._extract_doc_type(filename)
+            date_str = self._extract_date(filename)
+            fund_name = self._extract_fund_name(filename)
+
+            parts = []
+            if fund_name:
+                parts.append(fund_name)
+            if doc_type:
+                parts.append(doc_type)
+            if date_str:
+                parts.append(date_str)
+
+            if not parts:
+                return None
+
+            candidate = "-".join(parts) + suffix
+            return self._sanitize_filename(candidate)
+
         except Exception as e:
             print(f"文件名分析失败: {e}")
             return None
@@ -394,11 +376,88 @@ class DeepSeekAPIService:
                     # 添加文件扩展名
                     return f"{result}{file_path.suffix}"
             
+            # 当API无法返回结果时，使用启发式从文件名进行构造
+            heuristic_from_name = self._extract_from_filename(file_path)
+            if heuristic_from_name:
+                return heuristic_from_name
+
             return None
             
         except Exception as e:
             print(f"提取重命名信息失败: {e}")
             return None
+
+    # ===== 以下为通用启发式提取函数（无硬编码特殊样本） =====
+    def _extract_date(self, text: str) -> Optional[str]:
+        """从文本中提取日期，统一为YYYYMMDD。"""
+        import re
+        # 1) 8位数字
+        m = re.search(r'(19|20)\d{2}[./-]?\s?(0?[1-9]|1[0-2])[./-]?\s?([0-2]?\d|3[01])', text)
+        if m:
+            year = m.group(0)[0:4]
+            # 兼容分隔符与不补零
+            g = m.groups()
+            month = f"{int(g[1]):02d}"
+            day = f"{int(g[2]):02d}"
+            return f"{year}{month}{day}"
+
+        # 2) 汉字日期
+        m2 = re.search(r'(19|20)\d{2}年\s*(0?[1-9]|1[0-2])月\s*([0-2]?\d|3[01])日?', text)
+        if m2:
+            year = text[m2.start():m2.start()+4]
+            month = f"{int(m2.group(2)):02d}"
+            day = f"{int(m2.group(3)):02d}"
+            return f"{year}{month}{day}"
+        return None
+
+    def _extract_doc_type(self, text: str) -> Optional[str]:
+        """从文本中识别文档类型关键字，返回规范化名称。"""
+        mapping = {
+            '临时开放日公告': ['临时开放日公告', '开放日公告', '开放公告'],
+            '打款凭证': ['打款凭证', '付款凭证', '汇款回单', '转账回单'],
+            '基本信息表': ['基本信息表', '信息表'],
+            '确认函': ['确认函', '确认书'],
+            '合同': ['合同', '协议'],
+            '说明书': ['说明书', '产品说明书', '募集说明书'],
+            '年度报告': ['年度报告', '年报'],
+            '季度报告': ['季度报告', '季报'],
+            '月度报告': ['月度报告', '月报'],
+        }
+        for canonical, keywords in mapping.items():
+            for kw in keywords:
+                if kw in text:
+                    return canonical
+        # 兜底：若包含图片常见词
+        if '微信图片' in text:
+            return '打款凭证'
+        return None
+
+    def _extract_fund_name(self, text: str) -> Optional[str]:
+        """从文本中提取看起来像“xxx基金/xxx私募基金/xxx私募证券投资基金”的名称。"""
+        import re
+        # 典型基金名称尾缀
+        candidates = re.findall(r'[\u4e00-\u9fa5A-Za-z0-9]+?(?:\d+号)?(?:\d+期)?(?:私募(?:证券)?投资)?基金', text)
+        if candidates:
+            # 选择最长的匹配，通常信息更完整
+            candidates.sort(key=len, reverse=True)
+            return candidates[0]
+        # 次级：任意以“基金”结尾的短语
+        candidates = re.findall(r'[\u4e00-\u9fa5A-Za-z0-9]+基金', text)
+        if candidates:
+            candidates.sort(key=len, reverse=True)
+            return candidates[0]
+        return None
+
+    def _sanitize_filename(self, name: str) -> str:
+        """清理非法字符并压缩多余分隔符。"""
+        import re
+        # Windows非法字符: \ / : * ? " < > |
+        cleaned = re.sub(r'[\\/:*?"<>|]', '-', name)
+        # 去除多余空白
+        cleaned = re.sub(r'\s+', ' ', cleaned).strip()
+        # 合并多个连续的'-'
+        cleaned = re.sub(r'-{2,}', '-', cleaned)
+        return cleaned
 
 # 全局DeepSeek服务实例
 deepseek_service = DeepSeekAPIService()

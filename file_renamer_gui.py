@@ -167,20 +167,33 @@ class FileRenamer:
     def propose_new_name(self, path: Path, extract_len: int = 120,
                         lowercase: bool = True, space_to_underscore: bool = True,
                         max_length: int = 60) -> str:
-        """生成新文件名，使用金融文档专用提取方法"""
-        # 使用金融文档专用的内容提取方法
-        base_text = self.extract_content_for_naming(path)
+        """生成新文件名，优先调用 DeepSeek；失败时退回启发式。"""
+        # 1) 统一调用 DeepSeek
+        try:
+            from deepseek_api_service import deepseek_service
+            deepseek_result = None
+            if deepseek_service.is_available():
+                deepseek_result = deepseek_service.extract_renaming_info(path)
+                if deepseek_result:
+                    return deepseek_result
+                # 记录失败原因供UI显示
+                if getattr(deepseek_service, 'last_error', None):
+                    self.log_message(f"DeepSeek失败: {deepseek_service.last_error}")
+                if getattr(deepseek_service, 'last_suggestion', None):
+                    self.log_message(f"建议: {deepseek_service.last_suggestion}")
+        except Exception as e:
+            self.log_message(f"DeepSeek调用异常: {e}")
         
+        # 2) 退回到原有金融专用提取逻辑
+        base_text = self.extract_content_for_naming(path)
         if not base_text:
             base_text = path.stem
-        
         safe_stem = self.normalize_name(
-            base_text, 
-            lowercase=lowercase, 
-            replace_space_with_underscore=space_to_underscore, 
+            base_text,
+            lowercase=lowercase,
+            replace_space_with_underscore=space_to_underscore,
             max_length=max_length
         )
-        
         return f"{safe_stem}{path.suffix.lower()}"
     
     def make_unique_path(self, target_path: Path) -> Path:
