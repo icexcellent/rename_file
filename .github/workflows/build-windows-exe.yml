@@ -22,10 +22,14 @@ jobs:
         
     - name: Install system dependencies
       run: |
+        # 安装Chocolatey包管理器
+        Set-ExecutionPolicy Bypass -Scope Process -Force
+        [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072
+        iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
+        
         # 安装Tesseract OCR
         choco install tesseract --yes
         choco install tesseract-ocr-chi-sim --yes
-        choco install tesseract-ocr-eng --yes
         
         # 设置环境变量
         echo "TESSDATA_PREFIX=C:\ProgramData\chocolatey\lib\tesseract\tools\tessdata" >> $env:GITHUB_ENV
