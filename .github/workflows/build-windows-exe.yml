@@ -66,6 +66,7 @@ jobs:
               "https://huggingface.co/spaces/jaidedai/easyocr/resolve/main/chinese_sim.pth",
               "https://www.dropbox.com/s/8n02xqv3l9d5ziw/chinese_sim.pth?dl=1"
             )
+            MinSizeMB = 40  # 最小文件大小（MB）
           },
           @{
             Name = "english.pth"
@@ -74,12 +75,14 @@ jobs:
               "https://huggingface.co/spaces/jaidedai/easyocr/resolve/main/english.pth",
               "https://www.dropbox.com/s/8n02xqv3l9d5ziw/english.pth?dl=1"
             )
+            MinSizeMB = 40  # 最小文件大小（MB）
           }
         )
         
         foreach ($model in $models) {
           $modelName = $model.Name
           $urls = $model.Urls
+          $minSizeMB = $model.MinSizeMB
           $success = $false
           
           Write-Host "⬇️  下载 $modelName..."
@@ -91,9 +94,18 @@ jobs:
               if (Test-Path "easyocr_models/$modelName") {
                 $size = (Get-Item "easyocr_models/$modelName").Length
                 $sizeMB = [math]::Round($size / 1MB, 2)
-                Write-Host "✅ $modelName 下载成功，大小: $sizeMB MB"
-                $success = $true
-                break
+                
+                # 验证文件大小
+                if ($sizeMB -ge $minSizeMB) {
+                  Write-Host "✅ $modelName 下载成功，大小: $sizeMB MB"
+                  $success = $true
+                  break
+                } else {
+                  Write-Host "   ❌ 文件大小异常: $sizeMB MB (期望至少 $minSizeMB MB)"
+                  Write-Host "   可能是错误页面，尝试下一个源..."
+                  Remove-Item "easyocr_models/$modelName" -Force
+                  continue
+                }
               }
             } catch {
               Write-Host "   ❌ 从 $url 下载失败: $($_.Exception.Message)"

@@ -50,7 +50,8 @@ def main():
                 "https://huggingface.co/spaces/jaidedai/easyocr/resolve/main/chinese_sim.pth",
                 "https://www.dropbox.com/s/8n02xqv3l9d5ziw/chinese_sim.pth?dl=1"
             ],
-            "size": "约50MB"
+            "size": "约50MB",
+            "min_size_mb": 50
         },
         {
             "name": "english.pth",
@@ -59,7 +60,8 @@ def main():
                 "https://huggingface.co/spaces/jaidedai/easyocr/resolve/main/english.pth",
                 "https://www.dropbox.com/s/8n02xqv3l9d5ziw/english.pth?dl=1"
             ],
-            "size": "约50MB"
+            "size": "约50MB",
+            "min_size_mb": 50
         }
     ]
     
@@ -86,9 +88,20 @@ def main():
             
             if download_file(url, model_path):
                 file_size = model_path.stat().st_size / (1024*1024)
-                print(f"✅ {model['name']} 从源 {i} 下载完成 ({file_size:.1f} MB)")
-                success = True
-                break
+                min_size = model['min_size_mb']
+                
+                # 验证文件大小
+                if file_size >= min_size:
+                    print(f"✅ {model['name']} 从源 {i} 下载完成 ({file_size:.1f} MB)")
+                    success = True
+                    break
+                else:
+                    print(f"   ❌ 文件大小异常: {file_size:.1f} MB (期望至少 {min_size} MB)")
+                    print(f"   可能是错误页面，尝试下一个源...")
+                    model_path.unlink()  # 删除错误的文件
+                    if i < len(model['urls']):
+                        time.sleep(2)  # 等待2秒再尝试下一个源
+                    continue
             else:
                 print(f"   ❌ 源 {i} 下载失败，尝试下一个源...")
                 if i < len(model['urls']):
