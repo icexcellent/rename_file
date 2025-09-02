@@ -275,13 +275,22 @@ class FileRenamer:
             #     pass  # AI OCR失败，继续使用传统OCR
             
             # 2. 使用传统OCR（pytesseract）
-            image = Image.open(file_path)
-            text = pytesseract.image_to_string(image, lang='chi_sim+eng')
+            if pytesseract is None:
+                self._log(f"图片OCR失败 {file_path}: pytesseract未安装或不可用")
+                return self._extract_filename_info_financial(file_path)
             
-            # 针对金融文档的关键信息提取
-            extracted_info = self._extract_financial_keywords(text)
-            if extracted_info and len(extracted_info.strip()) > 10:  # 确保提取的信息有意义
-                return extracted_info
+            try:
+                image = Image.open(file_path)
+                text = pytesseract.image_to_string(image, lang='chi_sim+eng')
+                
+                # 针对金融文档的关键信息提取
+                extracted_info = self._extract_financial_keywords(text)
+                if extracted_info and len(extracted_info.strip()) > 10:  # 确保提取的信息有意义
+                    return extracted_info
+            except Exception as e:
+                self._log(f"图片OCR处理失败 {file_path}: {str(e)}")
+                # OCR失败时回退到文件名处理
+                pass
             
             # 3. 如果OCR结果不够好，优先使用文件名信息
             filename_info = self._extract_filename_info_financial(file_path)
