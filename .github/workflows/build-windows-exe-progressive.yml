@@ -28,10 +28,12 @@ jobs:
         pip install -r requirements_gui.txt
         echo "Dependencies installed successfully"
         
-    - name: Install PyInstaller
+    - name: Install PyInstaller and fix packages
       run: |
         pip install pyinstaller
-        echo "PyInstaller installed successfully"
+        # 强制安装pyparsing和packaging，解决导入问题
+        pip install pyparsing packaging setuptools --upgrade --force-reinstall
+        echo "PyInstaller and fix packages installed successfully"
         
     - name: Build Level 1 (Basic exclusions)
       run: |

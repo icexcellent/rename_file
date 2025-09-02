@@ -1,0 +1,26 @@
+# GitHub Actions专用依赖文件
+# 专门解决pyparsing包缺失问题
+
+# 核心依赖
+pytesseract>=0.3.10
+Pillow>=10.0.0
+pypdf>=4.0.0
+PyMuPDF>=1.23.0
+python-docx>=1.0.0
+chardet>=5.0.0
+tqdm>=4.66.0
+easyocr>=1.7.0
+opencv-python>=4.8.0
+requests>=2.31.0
+
+# 解决pyparsing问题的关键包
+pyparsing>=3.0.0
+packaging>=23.0
+setuptools>=65.0.0
+wheel>=0.40.0
+
+# PyInstaller相关
+pyinstaller>=5.0.0
+
+# 确保pkg_resources正常工作
+pkg_resources>=0.7.0
