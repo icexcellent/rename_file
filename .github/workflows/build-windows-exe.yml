@@ -66,6 +66,13 @@ jobs:
         echo 'import easyocr' > download_models.py
         echo 'import os' >> download_models.py
         echo 'import time' >> download_models.py
+        echo 'import sys' >> download_models.py
+        echo '' >> download_models.py
+        echo '# Force UTF-8 encoding for Windows compatibility' >> download_models.py
+        echo 'if sys.platform.startswith("win"):' >> download_models.py
+        echo '    import codecs' >> download_models.py
+        echo '    sys.stdout = codecs.getwriter("utf-8")(sys.stdout.detach())' >> download_models.py
+        echo '    sys.stderr = codecs.getwriter("utf-8")(sys.stderr.detach())' >> download_models.py
         echo '' >> download_models.py
         echo 'print("Starting EasyOCR model download...")' >> download_models.py
         echo '' >> download_models.py
