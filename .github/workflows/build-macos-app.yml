@@ -56,12 +56,12 @@ jobs:
           --exclude-module=notebook --exclude-module=sphinx \
           --exclude-module=docutils --exclude-module=pytest \
           --exclude-module=unittest --exclude-module=sqlite3 \
-          --exclude-module=xml --exclude-module=html \
-          --exclude-module=xmlrpc --exclude-module=multiprocessing \
-          --exclude-module=concurrent --exclude-module=asyncio \
-          --exclude-module=argparse --exclude-module=getopt \
-          --exclude-module=doctest --exclude-module=pdb \
-          --exclude-module=profile --exclude-module=cProfile \
+          --exclude-module=html --exclude-module=xmlrpc \
+          --exclude-module=multiprocessing --exclude-module=concurrent \
+          --exclude-module=asyncio --exclude-module=argparse \
+          --exclude-module=getopt --exclude-module=doctest \
+          --exclude-module=pdb --exclude-module=profile \
+          --exclude-module=cProfile \
           --hidden-import=PyQt6.QtCore \
           --hidden-import=PyQt6.QtWidgets \
           --hidden-import=PyQt6.QtGui \
