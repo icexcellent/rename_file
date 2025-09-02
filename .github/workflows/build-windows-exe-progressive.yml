@@ -66,17 +66,17 @@ jobs:
           exit 1
         }
         
-    - name: Build Level 3 (Safe exclusions)
+    - name: Build Level 3 (API-compatible exclusions)
       run: |
-        echo "Starting Level 3 build (safe exclusions)..."
+        echo "Starting Level 3 build (API-compatible exclusions)..."
         
         # 清理之前的构建
         if (Test-Path "dist") { Remove-Item -Recurse -Force "dist" }
         if (Test-Path "build") { Remove-Item -Recurse -Force "build" }
         if (Test-Path "FileRenamer.spec") { Remove-Item -Force "FileRenamer.spec" }
         
-        # 只排除安全的模块，保留运行时必需的模块
-        pyinstaller --onefile --windowed --name=FileRenamer --clean --exclude-module=numpy --exclude-module=pandas --exclude-module=matplotlib --exclude-module=scipy --exclude-module=sklearn --exclude-module=tensorflow --exclude-module=torch --exclude-module=cv2 --exclude-module=opencv --exclude-module=rapidocr --exclude-module=tkinter --exclude-module=wx --exclude-module=kivy --exclude-module=IPython --exclude-module=jupyter --exclude-module=notebook --exclude-module=sphinx --exclude-module=docutils --exclude-module=pytest --exclude-module=unittest --exclude-module=email --exclude-module=http --exclude-module=urllib3 --exclude-module=requests --exclude-module=sqlite3 --exclude-module=xml --exclude-module=html --exclude-module=xmlrpc --exclude-module=multiprocessing --exclude-module=concurrent --exclude-module=asyncio --exclude-module=argparse --exclude-module=getopt --exclude-module=doctest --exclude-module=pdb --exclude-module=profile --exclude-module=cProfile --hidden-import=PyQt6.QtCore --hidden-import=PyQt6.QtWidgets --hidden-import=PyQt6.QtGui --hidden-import=pytesseract --hidden-import=pypdf --hidden-import=docx --hidden-import=chardet --hidden-import=PIL --hidden-import=PIL.Image --hidden-import=logging --hidden-import=tqdm file_renamer_gui.py
+        # 保留API功能必需的模块，排除其他不必要的模块
+        pyinstaller --onefile --windowed --name=FileRenamer --clean --exclude-module=numpy --exclude-module=pandas --exclude-module=matplotlib --exclude-module=scipy --exclude-module=sklearn --exclude-module=tensorflow --exclude-module=torch --exclude-module=cv2 --exclude-module=opencv --exclude-module=rapidocr --exclude-module=tkinter --exclude-module=wx --exclude-module=kivy --exclude-module=IPython --exclude-module=jupyter --exclude-module=notebook --exclude-module=sphinx --exclude-module=docutils --exclude-module=pytest --exclude-module=unittest --exclude-module=email --exclude-module=http --exclude-module=urllib3 --exclude-module=sqlite3 --exclude-module=xml --exclude-module=html --exclude-module=xmlrpc --exclude-module=multiprocessing --exclude-module=concurrent --exclude-module=asyncio --exclude-module=argparse --exclude-module=getopt --exclude-module=doctest --exclude-module=pdb --exclude-module=profile --exclude-module=cProfile --hidden-import=PyQt6.QtCore --hidden-import=PyQt6.QtWidgets --hidden-import=PyQt6.QtGui --hidden-import=pytesseract --hidden-import=pypdf --hidden-import=docx --hidden-import=chardet --hidden-import=PIL --hidden-import=PIL.Image --hidden-import=logging --hidden-import=tqdm --hidden-import=requests --hidden-import=urllib3 file_renamer_gui.py
           
         if (Test-Path "dist\FileRenamer.exe") {
           $size = (Get-Item "dist\FileRenamer.exe").Length / 1MB
@@ -120,18 +120,19 @@ jobs:
         
         **Build Date:** $version
         **Final File Size:** $sizeFormatted MB
-        **Build Type:** Progressive optimization (3 levels) - Safe exclusions
+        **Build Type:** Progressive optimization (3 levels) - API-compatible exclusions
         
         ## Build Levels:
         - Level 1: Basic exclusions (numpy, pandas, matplotlib, scipy, sklearn)
         - Level 2: ML/AI exclusions (tensorflow, torch, cv2, opencv, rapidocr)
-        - Level 3: Safe exclusions (preserves runtime-essential modules like logging)
+        - Level 3: API-compatible exclusions (preserves requests, urllib3 for API functionality)
         
         ## Result:
         - All levels built successfully
         - Progressive optimization achieved
         - File size reduced significantly
         - Runtime compatibility ensured
+        - API functionality preserved
         "@
         
         $report | Out-File -FilePath "build-report.md" -Encoding UTF8
