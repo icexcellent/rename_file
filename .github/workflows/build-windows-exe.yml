@@ -63,7 +63,7 @@ jobs:
         
     - name: Build Windows EXE
       run: |
-        pyinstaller --onefile --windowed --name=FileRenamer --clean --hidden-import=pkg_resources --hidden-import=pyparsing --hidden-import=packaging --hidden-import=PyQt6.QtCore --hidden-import=PyQt6.QtWidgets --hidden-import=PyQt6.QtGui --hidden-import=requests --hidden-import=urllib3 --hidden-import=threading --hidden-import=queue file_renamer_gui.py
+        pyinstaller --onefile --windowed --name=FileRenamer --clean file_renamer_gui.py
           
     - name: Check build result
       run: |
