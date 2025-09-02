@@ -345,8 +345,24 @@ class DeepSeekAPIService:
             import cv2
             import threading
             import time
+            import os
             
             self._log("开始导入 EasyOCR 模块...")
+            
+            # 检查本地模型文件
+            local_models_dir = Path("easyocr_models")
+            if local_models_dir.exists():
+                self._log(f"发现本地模型目录: {local_models_dir.absolute()}")
+                model_files = list(local_models_dir.glob("*.pth"))
+                if model_files:
+                    self._log(f"本地模型文件: {[f.name for f in model_files]}")
+                    # 设置环境变量指向本地模型目录
+                    os.environ['EASYOCR_MODULE_PATH'] = str(local_models_dir.absolute())
+                    self._log("已设置EASYOCR_MODULE_PATH环境变量")
+                else:
+                    self._log("本地模型目录为空，将使用默认下载")
+            else:
+                self._log("未发现本地模型目录，将使用默认下载")
             
             # 使用线程和超时机制来防止EasyOCR初始化卡住
             reader = None
@@ -356,7 +372,12 @@ class DeepSeekAPIService:
                 nonlocal reader, init_error
                 try:
                     self._log("正在初始化 EasyOCR Reader...")
-                    reader = easyocr.Reader(['ch_sim', 'en'], gpu=False)
+                    if local_models_dir.exists() and list(local_models_dir.glob("*.pth")):
+                        self._log("使用本地模型文件初始化...")
+                        reader = easyocr.Reader(['ch_sim', 'en'], gpu=False, model_storage_directory=str(local_models_dir.absolute()))
+                    else:
+                        self._log("使用默认模型下载初始化...")
+                        reader = easyocr.Reader(['ch_sim', 'en'], gpu=False)
                     self._log("EasyOCR Reader 初始化成功")
                 except Exception as e:
                     init_error = e
@@ -369,8 +390,8 @@ class DeepSeekAPIService:
             init_thread.daemon = True
             init_thread.start()
             
-            # 等待初始化完成，最多等待30秒
-            timeout = 30
+            # 等待初始化完成，最多等待60秒（本地模型应该很快）
+            timeout = 60 if local_models_dir.exists() and list(local_models_dir.glob("*.pth")) else 30
             start_time = time.time()
             while init_thread.is_alive() and (time.time() - start_time) < timeout:
                 time.sleep(0.5)

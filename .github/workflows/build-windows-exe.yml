@@ -52,6 +52,30 @@ jobs:
         # 下载英文语言包
         Invoke-WebRequest -Uri "https://github.com/tesseract-ocr/tessdata/raw/main/eng.traineddata" -OutFile "C:\ProgramData\chocolatey\lib\tesseract\tools\tessdata\eng.traineddata"
         
+    - name: Download EasyOCR models
+      run: |
+        # 创建模型目录
+        mkdir -p easyocr_models
+        
+        # 下载中文简体模型
+        Invoke-WebRequest -Uri "https://github.com/JaidedAI/EasyOCR/releases/download/pre-v1.1.6/chinese_sim.pth" -OutFile "easyocr_models/chinese_sim.pth"
+        
+        # 下载英文模型
+        Invoke-WebRequest -Uri "https://github.com/JaidedAI/EasyOCR/releases/download/pre-v1.1.6/english.pth" -OutFile "easyocr_models/english.pth"
+        
+        # 检查下载结果
+        if (Test-Path "easyocr_models/chinese_sim.pth") {
+          $size = (Get-Item "easyocr_models/chinese_sim.pth").Length
+          $sizeMB = [math]::Round($size / 1MB, 2)
+          echo "✅ 中文模型下载成功，大小: $sizeMB MB"
+        }
+        
+        if (Test-Path "easyocr_models/english.pth") {
+          $size = (Get-Item "easyocr_models/english.pth").Length
+          $sizeMB = [math]::Round($size / 1MB, 2)
+          echo "✅ 英文模型下载成功，大小: $sizeMB MB"
+        }
+        
     - name: Upgrade pip
       run: python -m pip install --upgrade pip -i https://pypi.tuna.tsinghua.edu.cn/simple/
       
@@ -63,7 +87,7 @@ jobs:
         
     - name: Build Windows EXE
       run: |
-        pyinstaller --onefile --windowed --name=FileRenamer --clean file_renamer_gui.py
+        pyinstaller --onefile --windowed --name=FileRenamer --clean --add-data "easyocr_models;easyocr_models" file_renamer_gui.py
           
     - name: Check build result
       run: |
