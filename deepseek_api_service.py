@@ -343,38 +343,138 @@ class DeepSeekAPIService:
         try:
             import easyocr
             import cv2
+            import threading
+            import time
             
-            self._log("初始化 EasyOCR...")
-            # 初始化 EasyOCR，支持中文和英文
-            reader = easyocr.Reader(['ch_sim', 'en'], gpu=False)
+            self._log("开始导入 EasyOCR 模块...")
+            
+            # 使用线程和超时机制来防止EasyOCR初始化卡住
+            reader = None
+            init_error = None
+            
+            def init_easyocr():
+                nonlocal reader, init_error
+                try:
+                    self._log("正在初始化 EasyOCR Reader...")
+                    reader = easyocr.Reader(['ch_sim', 'en'], gpu=False)
+                    self._log("EasyOCR Reader 初始化成功")
+                except Exception as e:
+                    init_error = e
+                    self._log(f"EasyOCR Reader 初始化失败: {e}")
+            
+            # 启动初始化线程
+            init_thread = threading.Thread(target=init_easyocr)
+            init_thread.daemon = True
+            init_thread.start()
+            
+            # 等待初始化完成，最多等待30秒
+            timeout = 30
+            start_time = time.time()
+            while init_thread.is_alive() and (time.time() - start_time) < timeout:
+                time.sleep(0.5)
+            
+            if init_thread.is_alive():
+                # 超时，强制终止
+                self._log(f"EasyOCR 初始化超时（{timeout}秒），尝试使用替代方案...")
+                return self._extract_text_with_tesseract(image_path)
+            
+            if init_error:
+                self._log(f"EasyOCR 初始化出错: {init_error}，尝试使用替代方案...")
+                return self._extract_text_with_tesseract(image_path)
+            
+            if reader is None:
+                self._log("EasyOCR Reader 初始化失败，尝试使用替代方案...")
+                return self._extract_text_with_tesseract(image_path)
             
             self._log("开始 OCR 识别...")
+            
             # 读取图片
             image = cv2.imread(str(image_path))
             if image is None:
                 self._log("无法读取图片")
                 return None
             
-            # 进行 OCR 识别
-            results = reader.readtext(image)
+            # 进行 OCR 识别，也添加超时保护
+            ocr_results = None
+            ocr_error = None
+            
+            def run_ocr():
+                nonlocal ocr_results, ocr_error
+                try:
+                    ocr_results = reader.readtext(image)
+                except Exception as e:
+                    ocr_error = e
+            
+            # 启动OCR识别线程
+            ocr_thread = threading.Thread(target=run_ocr)
+            ocr_thread.daemon = True
+            ocr_thread.start()
+            
+            # 等待OCR识别完成，最多等待60秒
+            ocr_timeout = 60
+            ocr_start_time = time.time()
+            while ocr_thread.is_alive() and (time.time() - ocr_start_time) < ocr_timeout:
+                time.sleep(0.5)
+            
+            if ocr_thread.is_alive():
+                self._log(f"EasyOCR 识别超时（{ocr_timeout}秒），尝试使用替代方案...")
+                return self._extract_text_with_tesseract(image_path)
+            
+            if ocr_error:
+                self._log(f"EasyOCR 识别出错: {ocr_error}，尝试使用替代方案...")
+                return self._extract_text_with_tesseract(image_path)
+            
+            if ocr_results is None:
+                self._log("EasyOCR 识别结果为空，尝试使用替代方案...")
+                return self._extract_text_with_tesseract(image_path)
             
             # 提取识别的文本
             texts = []
-            for (bbox, text, prob) in results:
+            for (bbox, text, prob) in ocr_results:
                 if prob > 0.5:  # 只保留置信度大于 0.5 的文本
                     texts.append(text.strip())
             
             # 合并所有识别的文本
             full_text = ' '.join(texts)
-            self._log(f"OCR 识别完成，共识别 {len(texts)} 个文本块")
+            self._log(f"EasyOCR 识别完成，共识别 {len(texts)} 个文本块")
             
             return full_text
             
-        except ImportError:
-            self._log("EasyOCR 未安装，无法进行 OCR 识别")
+        except ImportError as e:
+            self._log(f"EasyOCR 模块导入失败: {e}")
+            self._log("尝试使用 Tesseract 作为替代方案...")
+            return self._extract_text_with_tesseract(image_path)
+        except Exception as e:
+            self._log(f"EasyOCR 处理过程中出现未知错误: {e}")
+            self._log("尝试使用 Tesseract 作为替代方案...")
+            return self._extract_text_with_tesseract(image_path)
+    
+    def _extract_text_with_tesseract(self, image_path: Path) -> Optional[str]:
+        """使用 Tesseract 作为 EasyOCR 的替代方案"""
+        try:
+            import pytesseract
+            from PIL import Image
+            
+            self._log("使用 Tesseract 进行 OCR 识别...")
+            
+            # 使用PIL打开图片
+            image = Image.open(image_path)
+            
+            # 使用Tesseract进行OCR识别
+            text = pytesseract.image_to_string(image, lang='chi_sim+eng')
+            
+            if text and text.strip():
+                self._log("Tesseract OCR 识别成功")
+                return text.strip()
+            else:
+                self._log("Tesseract OCR 识别结果为空")
+                return None
+                
+        except ImportError as e:
+            self._log(f"Tesseract 模块导入失败: {e}")
             return None
         except Exception as e:
-            self._log(f"OCR 识别失败: {e}")
+            self._log(f"Tesseract OCR 识别失败: {e}")
             return None
     
     def _extract_from_filename(self, file_path: Path) -> Optional[str]:
