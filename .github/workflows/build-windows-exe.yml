@@ -33,68 +33,50 @@ jobs:
         pip install pyinstaller
         echo "PyInstaller installed successfully"
         
-    - name: Check Python environment
-      run: |
-        python --version
-        pip list
-        echo "Python environment check completed"
-        
-    - name: Test basic PyInstaller
-      run: |
-        echo "Testing basic PyInstaller functionality..."
-        pyinstaller --version
-        echo "PyInstaller test completed"
-        
-    - name: Build EXE (step by step)
-      run: |
-        echo "Starting step-by-step build..."
-        
-        # 第一步：基本构建测试
-        echo "Step 1: Basic build test..."
-        pyinstaller --onefile --windowed --name=FileRenamer \
-          --clean \
-          file_renamer_gui.py
-          
-        if (Test-Path "dist\FileRenamer.exe") {
-          echo "Basic build successful!"
-          $size = (Get-Item "dist\FileRenamer.exe").Length / 1MB
-          Write-Host "Basic EXE size: $([math]::Round($size, 2)) MB"
-        } else {
-          echo "Basic build failed!"
-          exit 1
-        }
-        
-    - name: Build optimized EXE (if basic succeeds)
+    - name: Build optimized EXE
       run: |
         echo "Starting optimized build..."
         
-        # 清理之前的构建
-        if (Test-Path "dist") { Remove-Item -Recurse -Force "dist" }
-        if (Test-Path "build") { Remove-Item -Recurse -Force "build" }
-        if (Test-Path "FileRenamer.spec") { Remove-Item -Force "FileRenamer.spec" }
-        
-        # 使用优化的打包配置
+        # 使用经过验证的优化配置
         pyinstaller --onefile --windowed --name=FileRenamer \
-          --clean --optimize=2 \
-          --exclude-module=matplotlib --exclude-module=numpy \
-          --exclude-module=pandas --exclude-module=scipy \
-          --exclude-module=sklearn --exclude-module=tensorflow \
-          --exclude-module=torch --exclude-module=onnxruntime \
-          --exclude-module=cv2 --exclude-module=opencv \
-          --exclude-module=rapidocr --exclude-module=tkinter \
-          --exclude-module=wx --exclude-module=kivy \
-          --exclude-module=IPython --exclude-module=jupyter \
-          --exclude-module=notebook --exclude-module=sphinx \
-          --exclude-module=docutils --exclude-module=pytest \
-          --exclude-module=unittest --exclude-module=email \
-          --exclude-module=http --exclude-module=urllib3 \
-          --exclude-module=requests --exclude-module=sqlite3 \
-          --exclude-module=xml --exclude-module=html \
-          --exclude-module=xmlrpc --exclude-module=multiprocessing \
-          --exclude-module=concurrent --exclude-module=asyncio \
-          --exclude-module=logging --exclude-module=argparse \
-          --exclude-module=getopt --exclude-module=doctest \
-          --exclude-module=pdb --exclude-module=profile \
+          --clean \
+          --exclude-module=numpy \
+          --exclude-module=pandas \
+          --exclude-module=matplotlib \
+          --exclude-module=scipy \
+          --exclude-module=sklearn \
+          --exclude-module=tensorflow \
+          --exclude-module=torch \
+          --exclude-module=cv2 \
+          --exclude-module=opencv \
+          --exclude-module=rapidocr \
+          --exclude-module=tkinter \
+          --exclude-module=wx \
+          --exclude-module=kivy \
+          --exclude-module=IPython \
+          --exclude-module=jupyter \
+          --exclude-module=notebook \
+          --exclude-module=sphinx \
+          --exclude-module=docutils \
+          --exclude-module=pytest \
+          --exclude-module=unittest \
+          --exclude-module=email \
+          --exclude-module=http \
+          --exclude-module=urllib3 \
+          --exclude-module=requests \
+          --exclude-module=sqlite3 \
+          --exclude-module=xml \
+          --exclude-module=html \
+          --exclude-module=xmlrpc \
+          --exclude-module=multiprocessing \
+          --exclude-module=concurrent \
+          --exclude-module=asyncio \
+          --exclude-module=logging \
+          --exclude-module=argparse \
+          --exclude-module=getopt \
+          --exclude-module=doctest \
+          --exclude-module=pdb \
+          --exclude-module=profile \
           --exclude-module=cProfile \
           --hidden-import=PyQt6.QtCore \
           --hidden-import=PyQt6.QtWidgets \
@@ -152,7 +134,6 @@ jobs:
         ## Changes in this build:
         - Optimized dependencies and removed unused libraries
         - Excluded unnecessary Python modules (numpy, pandas, etc.)
-        - Enabled PyInstaller optimizations (--optimize=2)
         - Reduced file size significantly from ~500MB
         
         ## Installation:

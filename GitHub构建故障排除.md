@@ -13,16 +13,16 @@ The windows-latest label will migrate from Windows Server 2022 to Windows Server
 - 已修复：使用具体的Windows版本标签：`runs-on: windows-2022`
 - 避免使用 `windows-latest` 标签
 
-#### 问题：PyInstaller构建失败
+#### 问题：PyInstaller构建失败 (Exit code 1)
 **可能原因**：
-- Python版本不兼容
-- 依赖安装失败
-- 权限问题
+- 优化参数过于激进
+- 某些exclude-module参数不兼容
+- 依赖包冲突
 
 **解决方案**：
-1. 检查Python版本（推荐3.11+）
-2. 确保所有依赖正确安装
-3. 查看构建日志获取详细错误信息
+1. 使用渐进式构建策略
+2. 先确保基础构建成功
+3. 逐步添加优化参数
 
 ### 2. macOS构建失败
 
@@ -39,15 +39,29 @@ The windows-latest label will migrate from Windows Server 2022 to Windows Server
 ## 🔧 当前构建配置
 
 ### 已优化的工作流
-1. **build-windows-exe.yml** - Windows优化构建
-2. **build-macos-app.yml** - macOS优化构建
+1. **build-windows-exe.yml** - Windows优化构建（简化版）
+2. **build-windows-exe-basic.yml** - Windows基础构建（已验证成功）
+3. **build-windows-exe-progressive.yml** - Windows渐进式优化构建
+4. **build-macos-app.yml** - macOS优化构建
 
 ### 配置特点
 - ✅ 使用稳定的runner标签
 - ✅ 启用pip缓存加速
 - ✅ 30分钟超时保护
-- ✅ 完整的瘦身优化
+- ✅ 渐进式优化策略
 - ✅ 自动文件大小检查
+
+## 🎯 渐进式构建策略
+
+### 为什么使用渐进式构建？
+- **基础构建成功**：确保基本环境正常
+- **逐步优化**：避免一次性添加过多参数导致失败
+- **问题定位**：容易找到导致失败的特定参数
+
+### 构建级别
+1. **Level 1**: 基础排除（numpy, pandas, matplotlib, scipy, sklearn）
+2. **Level 2**: ML/AI排除（tensorflow, torch, cv2, opencv, rapidocr）
+3. **Level 3**: 完全排除（所有不必要的模块）
 
 ## 📋 故障排除步骤
 
@@ -61,11 +75,20 @@ The windows-latest label will migrate from Windows Server 2022 to Windows Server
 # 安装依赖
 pip install -r requirements_gui.txt
 
-# 测试PyInstaller
+# 测试基本构建
 pyinstaller --onefile --windowed file_renamer_gui.py
+
+# 运行诊断脚本
+python debug_windows_build.py
 ```
 
-### 步骤3：检查依赖
+### 步骤3：使用渐进式构建
+如果优化构建失败，使用渐进式构建：
+1. 先运行基础构建确保成功
+2. 再运行渐进式构建逐步优化
+3. 观察每个级别的构建结果
+
+### 步骤4：检查依赖
 ```bash
 # 查看已安装的包
 pip list
@@ -80,8 +103,7 @@ pip show pytesseract
 ### 已实现的优化
 - ✅ 移除未使用的依赖 (rapidocr-onnxruntime)
 - ✅ 排除不必要的Python模块
-- ✅ 启用PyInstaller优化 (--strip, --optimize=2)
-- ✅ 启用UPX压缩 (macOS)
+- ✅ 渐进式优化策略
 - ✅ 使用稳定的runner标签
 
 ### 预期效果
@@ -109,6 +131,13 @@ pip show pytesseract
 
 ### 最新更新
 - 删除了冗余的 `windows-build.yml` 和 `build-windows-exe-simple.yml`
-- 保留了最优化和稳定的两个工作流
+- 保留了最优化和稳定的工作流
+- 添加了渐进式构建策略
 - 统一了Windows和macOS的构建配置
 - 添加了超时保护和pip缓存优化
+
+### Windows构建问题解决
+- ✅ 基础构建已成功验证
+- ✅ 优化构建使用渐进式策略
+- ✅ 添加了详细的错误处理和日志
+- ✅ 提供了多种构建选项
