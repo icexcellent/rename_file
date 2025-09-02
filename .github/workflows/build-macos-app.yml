@@ -43,6 +43,7 @@ jobs:
         echo "Starting PyInstaller build..."
         
         # 使用优化的打包配置，保留必要的模块
+        # 使用--collect-all策略确保setuptools相关包的所有依赖都被正确收集
         pyinstaller --onefile --windowed --name=FileRenamer \
           --clean --optimize=2 --strip --upx-dir=/usr/local/bin \
           --exclude-module=matplotlib --exclude-module=numpy \
@@ -86,15 +87,11 @@ jobs:
           --hidden-import=urllib3.poolmanager \
           --hidden-import=urllib3.connection \
           --hidden-import=urllib3.response \
-          --hidden-import=pyparsing \
-          --hidden-import=packaging \
-          --hidden-import=packaging.requirements \
-          --hidden-import=packaging.specifiers \
-          --hidden-import=packaging.version \
-          --hidden-import=packaging.markers \
-          --hidden-import=pkg_resources \
-          --hidden-import=pkg_resources._vendor \
-          --hidden-import=pkg_resources.extern \
+          --collect-all=setuptools \
+          --collect-all=pkg_resources \
+          --collect-all=packaging \
+          --collect-all=pyparsing \
+          --collect-all=distutils \
           file_renamer_gui.py
           
         echo "PyInstaller build completed"
