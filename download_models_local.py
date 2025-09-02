@@ -46,22 +46,22 @@ def main():
         {
             "name": "chinese_sim.pth",
             "urls": [
-                "https://github.com/JaidedAI/EasyOCR/releases/download/pre-v1.1.6/chinese_sim.pth",
-                "https://huggingface.co/spaces/jaidedai/easyocr/resolve/main/chinese_sim.pth",
-                "https://www.dropbox.com/s/8n02xqv3l9d5ziw/chinese_sim.pth?dl=1"
+                "https://github.com/JaidedAI/EasyOCR/releases/download/v1.7.0/chinese_sim.pth",
+                "https://github.com/JaidedAI/EasyOCR/releases/download/v1.6.2/chinese_sim.pth",
+                "https://github.com/JaidedAI/EasyOCR/releases/download/v1.6.0/chinese_sim.pth"
             ],
             "size": "约50MB",
-            "min_size_mb": 50
+            "min_size_mb": 50  # 最小文件大小（MB）
         },
         {
             "name": "english.pth",
             "urls": [
-                "https://github.com/JaidedAI/EasyOCR/releases/download/pre-v1.1.6/english.pth",
-                "https://huggingface.co/spaces/jaidedai/easyocr/resolve/main/english.pth",
-                "https://www.dropbox.com/s/8n02xqv3l9d5ziw/english.pth?dl=1"
+                "https://github.com/JaidedAI/EasyOCR/releases/download/v1.7.0/english.pth",
+                "https://github.com/JaidedAI/EasyOCR/releases/download/v1.6.2/english.pth",
+                "https://github.com/JaidedAI/EasyOCR/releases/download/v1.6.0/english.pth"
             ],
             "size": "约50MB",
-            "min_size_mb": 50
+            "min_size_mb": 50  # 最小文件大小（MB）
         }
     ]
     
