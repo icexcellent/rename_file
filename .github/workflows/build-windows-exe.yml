@@ -60,32 +60,32 @@ jobs:
         
     - name: Download EasyOCR models using EasyOCR
       run: |
-        echo "🔍 使用EasyOCR自动下载模型文件..."
+        echo "Using EasyOCR to download model files..."
         
         # 创建Python脚本来下载模型
         echo 'import easyocr' > download_models.py
         echo 'import os' >> download_models.py
         echo 'import time' >> download_models.py
         echo '' >> download_models.py
-        echo 'print("🚀 开始使用EasyOCR自动下载模型...")' >> download_models.py
+        echo 'print("Starting EasyOCR model download...")' >> download_models.py
         echo '' >> download_models.py
         echo 'try:' >> download_models.py
-        echo '    print("📥 正在下载中文简体模型...")' >> download_models.py
+        echo '    print("Downloading Chinese Simplified model...")' >> download_models.py
         echo '    reader_ch = easyocr.Reader(["ch_sim"], gpu=False)' >> download_models.py
-        echo '    print("✅ 中文简体模型下载完成")' >> download_models.py
+        echo '    print("Chinese Simplified model download completed")' >> download_models.py
         echo '' >> download_models.py
-        echo '    print("📥 正在下载英文模型...")' >> download_models.py
+        echo '    print("Downloading English model...")' >> download_models.py
         echo '    reader_en = easyocr.Reader(["en"], gpu=False)' >> download_models.py
-        echo '    print("✅ 英文模型下载完成")' >> download_models.py
+        echo '    print("English model download completed")' >> download_models.py
         echo '' >> download_models.py
-        echo '    # 检查模型文件' >> download_models.py
+        echo '    # Check model files' >> download_models.py
         echo '    home_dir = os.path.expanduser("~")' >> download_models.py
         echo '    easyocr_dir = os.path.join(home_dir, ".EasyOCR")' >> download_models.py
         echo '' >> download_models.py
         echo '    if os.path.exists(easyocr_dir):' >> download_models.py
         echo '        files = os.listdir(easyocr_dir)' >> download_models.py
         echo '        pth_files = [f for f in files if f.endswith(".pth")]' >> download_models.py
-        echo '        print(f"🎯 找到模型文件: {pth_files}")' >> download_models.py
+        echo '        print(f"Found model files: {pth_files}")' >> download_models.py
         echo '' >> download_models.py
         echo '        total_size = 0' >> download_models.py
         echo '        for model in pth_files:' >> download_models.py
@@ -94,9 +94,9 @@ jobs:
         echo '            total_size += size' >> download_models.py
         echo '            print(f"   {model}: {size:.1f} MB")' >> download_models.py
         echo '' >> download_models.py
-        echo '        print(f"📏 总大小: {total_size:.1f} MB")' >> download_models.py
+        echo '        print(f"Total size: {total_size:.1f} MB")' >> download_models.py
         echo '' >> download_models.py
-        echo '        # 复制模型文件到当前目录' >> download_models.py
+        echo '        # Copy model files to current directory' >> download_models.py
         echo '        import shutil' >> download_models.py
         echo '        models_dir = "easyocr_models"' >> download_models.py
         echo '        if not os.path.exists(models_dir):' >> download_models.py
@@ -106,14 +106,14 @@ jobs:
         echo '            src = os.path.join(easyocr_dir, model)' >> download_models.py
         echo '            dst = os.path.join(models_dir, model)' >> download_models.py
         echo '            shutil.copy2(src, dst)' >> download_models.py
-        echo '            print(f"📋 复制 {model} 到 {models_dir}")' >> download_models.py
+        echo '            print(f"Copied {model} to {models_dir}")' >> download_models.py
         echo '' >> download_models.py
-        echo '        print("🎉 模型文件准备完成！")' >> download_models.py
+        echo '        print("Model files preparation completed!")' >> download_models.py
         echo '    else:' >> download_models.py
-        echo '        print("❌ EasyOCR模型目录不存在")' >> download_models.py
+        echo '        print("EasyOCR model directory does not exist")' >> download_models.py
         echo '' >> download_models.py
         echo 'except Exception as e:' >> download_models.py
-        echo '    print(f"❌ 模型下载失败: {e}")' >> download_models.py
+        echo '    print(f"Model download failed: {e}")' >> download_models.py
         echo '    exit(1)' >> download_models.py
         
         # 运行脚本
@@ -123,17 +123,17 @@ jobs:
         if (Test-Path "easyocr_models") {
             $models = Get-ChildItem "easyocr_models" -Filter "*.pth"
             if ($models.Count -gt 0) {
-                echo "✅ 模型文件准备成功"
+                echo "Model files preparation successful"
                 foreach ($model in $models) {
                     $size = $model.Length / (1024*1024)
                     echo "   $($model.Name): $([math]::Round($size, 2)) MB"
                 }
             } else {
-                echo "❌ 没有找到模型文件"
+                echo "No model files found"
                 exit 1
             }
         } else {
-            echo "❌ 模型目录不存在"
+            echo "Model directory does not exist"
             exit 1
         }
         
