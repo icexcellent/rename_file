@@ -9,11 +9,16 @@ import sys
 from pathlib import Path
 import requests
 from tqdm import tqdm
+import time
 
-def download_file(url, filepath, chunk_size=8192):
+def download_file(url, filepath, chunk_size=8192, timeout=300):
     """下载文件并显示进度条"""
     try:
-        response = requests.get(url, stream=True)
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        }
+        
+        response = requests.get(url, stream=True, headers=headers, timeout=timeout)
         response.raise_for_status()
         
         total_size = int(response.headers.get('content-length', 0))
@@ -36,16 +41,24 @@ def main():
     models_dir = Path("easyocr_models")
     models_dir.mkdir(exist_ok=True)
     
-    # 模型文件列表
+    # 模型文件列表（多个下载源）
     models = [
         {
             "name": "chinese_sim.pth",
-            "url": "https://github.com/JaidedAI/EasyOCR/releases/download/pre-v1.1.6/chinese_sim.pth",
+            "urls": [
+                "https://github.com/JaidedAI/EasyOCR/releases/download/pre-v1.1.6/chinese_sim.pth",
+                "https://huggingface.co/spaces/jaidedai/easyocr/resolve/main/chinese_sim.pth",
+                "https://www.dropbox.com/s/8n02xqv3l9d5ziw/chinese_sim.pth?dl=1"
+            ],
             "size": "约50MB"
         },
         {
             "name": "english.pth",
-            "url": "https://github.com/JaidedAI/EasyOCR/releases/download/pre-v1.1.6/english.pth", 
+            "urls": [
+                "https://github.com/JaidedAI/EasyOCR/releases/download/pre-v1.1.6/english.pth",
+                "https://huggingface.co/spaces/jaidedai/easyocr/resolve/main/english.pth",
+                "https://www.dropbox.com/s/8n02xqv3l9d5ziw/english.pth?dl=1"
+            ],
             "size": "约50MB"
         }
     ]
@@ -53,6 +66,7 @@ def main():
     print(f"📁 模型将保存到: {models_dir.absolute()}")
     print(f"📦 需要下载 {len(models)} 个模型文件")
     print("💡 下载完成后，这些文件将被打包到EXE中")
+    print("🔄 每个模型都有多个下载源，自动尝试备用源")
     
     # 下载模型文件
     for model in models:
@@ -64,13 +78,24 @@ def main():
             continue
             
         print(f"⬇️  下载 {model['name']} ({model['size']})...")
-        print(f"   从: {model['url']}")
         
-        if download_file(model['url'], model_path):
-            file_size = model_path.stat().st_size / (1024*1024)
-            print(f"✅ {model['name']} 下载完成 ({file_size:.1f} MB)")
-        else:
-            print(f"❌ {model['name']} 下载失败")
+        # 尝试多个下载源
+        success = False
+        for i, url in enumerate(model['urls'], 1):
+            print(f"   尝试源 {i}/{len(model['urls'])}: {url}")
+            
+            if download_file(url, model_path):
+                file_size = model_path.stat().st_size / (1024*1024)
+                print(f"✅ {model['name']} 从源 {i} 下载完成 ({file_size:.1f} MB)")
+                success = True
+                break
+            else:
+                print(f"   ❌ 源 {i} 下载失败，尝试下一个源...")
+                if i < len(model['urls']):
+                    time.sleep(2)  # 等待2秒再尝试下一个源
+        
+        if not success:
+            print(f"❌ {model['name']} 所有下载源都失败了")
             return False
     
     print("\n🎉 所有模型文件下载完成！")
@@ -103,6 +128,12 @@ pyinstaller --onefile --windowed --name=FileRenamer --clean \\
 
 ## 🔧 环境变量
 代码会自动设置 EASYOCR_MODULE_PATH 环境变量指向模型目录
+
+## 📥 下载源
+模型文件从以下源下载：
+- GitHub Releases
+- Hugging Face
+- Dropbox (备用)
 """
     
     readme_file = models_dir / "PACKAGING_README.md"

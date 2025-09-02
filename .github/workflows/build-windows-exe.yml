@@ -57,23 +57,77 @@ jobs:
         # 创建模型目录
         mkdir -p easyocr_models
         
-        # 下载中文简体模型
-        Invoke-WebRequest -Uri "https://github.com/JaidedAI/EasyOCR/releases/download/pre-v1.1.6/chinese_sim.pth" -OutFile "easyocr_models/chinese_sim.pth"
+        # 尝试多个下载源
+        $models = @(
+          @{
+            Name = "chinese_sim.pth"
+            Urls = @(
+              "https://github.com/JaidedAI/EasyOCR/releases/download/pre-v1.1.6/chinese_sim.pth",
+              "https://huggingface.co/spaces/jaidedai/easyocr/resolve/main/chinese_sim.pth",
+              "https://www.dropbox.com/s/8n02xqv3l9d5ziw/chinese_sim.pth?dl=1"
+            )
+          },
+          @{
+            Name = "english.pth"
+            Urls = @(
+              "https://github.com/JaidedAI/EasyOCR/releases/download/pre-v1.1.6/english.pth",
+              "https://huggingface.co/spaces/jaidedai/easyocr/resolve/main/english.pth",
+              "https://www.dropbox.com/s/8n02xqv3l9d5ziw/english.pth?dl=1"
+            )
+          }
+        )
         
-        # 下载英文模型
-        Invoke-WebRequest -Uri "https://github.com/JaidedAI/EasyOCR/releases/download/pre-v1.1.6/english.pth" -OutFile "easyocr_models/english.pth"
+        foreach ($model in $models) {
+          $modelName = $model.Name
+          $urls = $model.Urls
+          $success = $false
+          
+          Write-Host "⬇️  下载 $modelName..."
+          
+          foreach ($url in $urls) {
+            try {
+              Write-Host "   尝试从: $url"
+              $response = Invoke-WebRequest -Uri $url -OutFile "easyocr_models/$modelName" -TimeoutSec 300
+              if (Test-Path "easyocr_models/$modelName") {
+                $size = (Get-Item "easyocr_models/$modelName").Length
+                $sizeMB = [math]::Round($size / 1MB, 2)
+                Write-Host "✅ $modelName 下载成功，大小: $sizeMB MB"
+                $success = $true
+                break
+              }
+            } catch {
+              Write-Host "   ❌ 从 $url 下载失败: $($_.Exception.Message)"
+              continue
+            }
+          }
+          
+          if (-not $success) {
+            Write-Host "❌ $modelName 所有下载源都失败了"
+            return $false
+          }
+        }
         
-        # 检查下载结果
+        Write-Host "🎉 所有模型文件下载完成！"
+        return $true
+        
+    - name: Check models download
+      run: |
         if (Test-Path "easyocr_models/chinese_sim.pth") {
           $size = (Get-Item "easyocr_models/chinese_sim.pth").Length
           $sizeMB = [math]::Round($size / 1MB, 2)
           echo "✅ 中文模型下载成功，大小: $sizeMB MB"
+        } else {
+          echo "❌ 中文模型下载失败"
+          exit 1
         }
         
         if (Test-Path "easyocr_models/english.pth") {
           $size = (Get-Item "easyocr_models/english.pth").Length
           $sizeMB = [math]::Round($size / 1MB, 2)
           echo "✅ 英文模型下载成功，大小: $sizeMB MB"
+        } else {
+          echo "❌ 英文模型下载失败"
+          exit 1
         }
         
     - name: Upgrade pip
