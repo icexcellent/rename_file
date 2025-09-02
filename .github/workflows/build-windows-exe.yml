@@ -52,104 +52,95 @@ jobs:
         # 下载英文语言包
         Invoke-WebRequest -Uri "https://github.com/tesseract-ocr/tessdata/raw/main/eng.traineddata" -OutFile "C:\ProgramData\chocolatey\lib\tesseract\tools\tessdata\eng.traineddata"
         
-    - name: Download EasyOCR models
-      run: |
-        # 创建模型目录
-        mkdir -p easyocr_models
-        
-        # 尝试多个下载源（使用正确的版本标签）
-        $models = @(
-          @{
-            Name = "chinese_sim.pth"
-            Urls = @(
-              "https://github.com/JaidedAI/EasyOCR/releases/download/v1.7.0/chinese_sim.pth",
-              "https://github.com/JaidedAI/EasyOCR/releases/download/v1.6.2/chinese_sim.pth",
-              "https://github.com/JaidedAI/EasyOCR/releases/download/v1.6.0/chinese_sim.pth"
-            )
-            MinSizeMB = 40  # 最小文件大小（MB）
-          },
-          @{
-            Name = "english.pth"
-            Urls = @(
-              "https://github.com/JaidedAI/EasyOCR/releases/download/v1.7.0/english.pth",
-              "https://github.com/JaidedAI/EasyOCR/releases/download/v1.6.2/english.pth",
-              "https://github.com/JaidedAI/EasyOCR/releases/download/v1.6.0/english.pth"
-            )
-            MinSizeMB = 40  # 最小文件大小（MB）
-          }
-        )
-        
-        foreach ($model in $models) {
-          $modelName = $model.Name
-          $urls = $model.Urls
-          $minSizeMB = $model.MinSizeMB
-          $success = $false
-          
-          Write-Host "⬇️  下载 $modelName..."
-          
-          foreach ($url in $urls) {
-            try {
-              Write-Host "   尝试从: $url"
-              $response = Invoke-WebRequest -Uri $url -OutFile "easyocr_models/$modelName" -TimeoutSec 300
-              if (Test-Path "easyocr_models/$modelName") {
-                $size = (Get-Item "easyocr_models/$modelName").Length
-                $sizeMB = [math]::Round($size / 1MB, 2)
-                
-                # 验证文件大小
-                if ($sizeMB -ge $minSizeMB) {
-                  Write-Host "✅ $modelName 下载成功，大小: $sizeMB MB"
-                  $success = $true
-                  break
-                } else {
-                  Write-Host "   ❌ 文件大小异常: $sizeMB MB (期望至少 $minSizeMB MB)"
-                  Write-Host "   可能是错误页面，尝试下一个源..."
-                  Remove-Item "easyocr_models/$modelName" -Force
-                  continue
-                }
-              }
-            } catch {
-              Write-Host "   ❌ 从 $url 下载失败: $($_.Exception.Message)"
-              continue
-            }
-          }
-          
-          if (-not $success) {
-            Write-Host "❌ $modelName 所有下载源都失败了"
-            return $false
-          }
-        }
-        
-        Write-Host "🎉 所有模型文件下载完成！"
-        return $true
-        
-    - name: Check models download
-      run: |
-        if (Test-Path "easyocr_models/chinese_sim.pth") {
-          $size = (Get-Item "easyocr_models/chinese_sim.pth").Length
-          $sizeMB = [math]::Round($size / 1MB, 2)
-          echo "✅ 中文模型下载成功，大小: $sizeMB MB"
-        } else {
-          echo "❌ 中文模型下载失败"
-          exit 1
-        }
-        
-        if (Test-Path "easyocr_models/english.pth") {
-          $size = (Get-Item "easyocr_models/english.pth").Length
-          $sizeMB = [math]::Round($size / 1MB, 2)
-          echo "✅ 英文模型下载成功，大小: $sizeMB MB"
-        } else {
-          echo "❌ 英文模型下载失败"
-          exit 1
-        }
-        
-    - name: Upgrade pip
-      run: python -m pip install --upgrade pip -i https://pypi.tuna.tsinghua.edu.cn/simple/
-      
     - name: Install Python dependencies
       run: |
         pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple/
         pip install -r requirements_gui.txt -i https://pypi.tuna.tsinghua.edu.cn/simple/
         pip install pyinstaller -i https://pypi.tuna.tsinghua.edu.cn/simple/
+        
+    - name: Download EasyOCR models using EasyOCR
+      run: |
+        echo "🔍 使用EasyOCR自动下载模型文件..."
+        
+        # 创建Python脚本来下载模型
+        $downloadScript = @"
+import easyocr
+import os
+import time
+
+print("🚀 开始使用EasyOCR自动下载模型...")
+
+try:
+    print("📥 正在下载中文简体模型...")
+    reader_ch = easyocr.Reader(['ch_sim'], gpu=False)
+    print("✅ 中文简体模型下载完成")
+    
+    print("📥 正在下载英文模型...")
+    reader_en = easyocr.Reader(['en'], gpu=False)
+    print("✅ 英文模型下载完成")
+    
+    # 检查模型文件
+    home_dir = os.path.expanduser("~")
+    easyocr_dir = os.path.join(home_dir, ".EasyOCR")
+    
+    if os.path.exists(easyocr_dir):
+        files = os.listdir(easyocr_dir)
+        pth_files = [f for f in files if f.endswith('.pth')]
+        print(f"🎯 找到模型文件: {pth_files}")
+        
+        total_size = 0
+        for model in pth_files:
+            model_path = os.path.join(easyocr_dir, model)
+            size = os.path.getsize(model_path) / (1024*1024)
+            total_size += size
+            print(f"   {model}: {size:.1f} MB")
+        
+        print(f"📏 总大小: {total_size:.1f} MB")
+        
+        # 复制模型文件到当前目录
+        import shutil
+        models_dir = "easyocr_models"
+        if not os.path.exists(models_dir):
+            os.makedirs(models_dir)
+        
+        for model in pth_files:
+            src = os.path.join(easyocr_dir, model)
+            dst = os.path.join(models_dir, model)
+            shutil.copy2(src, dst)
+            print(f"📋 复制 {model} 到 {models_dir}")
+        
+        print("🎉 模型文件准备完成！")
+    else:
+        print("❌ EasyOCR模型目录不存在")
+        
+except Exception as e:
+    print(f"❌ 模型下载失败: {e}")
+    exit(1)
+"@
+        
+        # 保存脚本
+        $downloadScript | Out-File -FilePath "download_models.py" -Encoding UTF8
+        
+        # 运行脚本
+        python download_models.py
+        
+        # 检查结果
+        if (Test-Path "easyocr_models") {
+            $models = Get-ChildItem "easyocr_models" -Filter "*.pth"
+            if ($models.Count -gt 0) {
+                echo "✅ 模型文件准备成功"
+                foreach ($model in $models) {
+                    $size = $model.Length / (1024*1024)
+                    echo "   $($model.Name): $([math]::Round($size, 2)) MB"
+                }
+            } else {
+                echo "❌ 没有找到模型文件"
+                exit 1
+            }
+        } else {
+            echo "❌ 模型目录不存在"
+            exit 1
+        }
         
     - name: Build Windows EXE
       run: |
