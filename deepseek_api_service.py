@@ -361,6 +361,8 @@ class DeepSeekAPIService:
                 except Exception as e:
                     init_error = e
                     self._log(f"EasyOCR Reader 初始化失败: {e}")
+                    self._log(f"异常类型: {type(e).__name__}")
+                    self._log(f"异常详情: {str(e)}")
             
             # 启动初始化线程
             init_thread = threading.Thread(target=init_easyocr)
@@ -374,17 +376,19 @@ class DeepSeekAPIService:
                 time.sleep(0.5)
             
             if init_thread.is_alive():
-                # 超时，强制终止
-                self._log(f"EasyOCR 初始化超时（{timeout}秒），尝试使用替代方案...")
-                return self._extract_text_with_tesseract(image_path)
+                # 超时，记录超时信息
+                self._log(f"EasyOCR 初始化超时（{timeout}秒）")
+                return None
             
             if init_error:
-                self._log(f"EasyOCR 初始化出错: {init_error}，尝试使用替代方案...")
-                return self._extract_text_with_tesseract(image_path)
+                self._log(f"EasyOCR 初始化出错，停止执行")
+                self._log(f"错误类型: {type(init_error).__name__}")
+                self._log(f"错误信息: {str(init_error)}")
+                return None
             
             if reader is None:
-                self._log("EasyOCR Reader 初始化失败，尝试使用替代方案...")
-                return self._extract_text_with_tesseract(image_path)
+                self._log("EasyOCR Reader 初始化失败，停止执行")
+                return None
             
             self._log("开始 OCR 识别...")
             
@@ -404,6 +408,9 @@ class DeepSeekAPIService:
                     ocr_results = reader.readtext(image)
                 except Exception as e:
                     ocr_error = e
+                    self._log(f"OCR 识别过程出错: {e}")
+                    self._log(f"错误类型: {type(e).__name__}")
+                    self._log(f"错误信息: {str(e)}")
             
             # 启动OCR识别线程
             ocr_thread = threading.Thread(target=run_ocr)
@@ -417,16 +424,16 @@ class DeepSeekAPIService:
                 time.sleep(0.5)
             
             if ocr_thread.is_alive():
-                self._log(f"EasyOCR 识别超时（{ocr_timeout}秒），尝试使用替代方案...")
-                return self._extract_text_with_tesseract(image_path)
+                self._log(f"EasyOCR 识别超时（{ocr_timeout}秒）")
+                return None
             
             if ocr_error:
-                self._log(f"EasyOCR 识别出错: {ocr_error}，尝试使用替代方案...")
-                return self._extract_text_with_tesseract(image_path)
+                self._log(f"EasyOCR 识别出错，停止执行")
+                return None
             
             if ocr_results is None:
-                self._log("EasyOCR 识别结果为空，尝试使用替代方案...")
-                return self._extract_text_with_tesseract(image_path)
+                self._log("EasyOCR 识别结果为空")
+                return None
             
             # 提取识别的文本
             texts = []
@@ -442,12 +449,14 @@ class DeepSeekAPIService:
             
         except ImportError as e:
             self._log(f"EasyOCR 模块导入失败: {e}")
-            self._log("尝试使用 Tesseract 作为替代方案...")
-            return self._extract_text_with_tesseract(image_path)
+            self._log(f"导入错误类型: {type(e).__name__}")
+            self._log(f"导入错误详情: {str(e)}")
+            return None
         except Exception as e:
             self._log(f"EasyOCR 处理过程中出现未知错误: {e}")
-            self._log("尝试使用 Tesseract 作为替代方案...")
-            return self._extract_text_with_tesseract(image_path)
+            self._log(f"未知错误类型: {type(e).__name__}")
+            self._log(f"未知错误详情: {str(e)}")
+            return None
     
     def _extract_text_with_tesseract(self, image_path: Path) -> Optional[str]:
         """使用 Tesseract 作为 EasyOCR 的替代方案"""
