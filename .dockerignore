@@ -1,0 +1,60 @@
+# Git相关
+.git
+.gitignore
+
+# Python相关
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+env
+pip-log.txt
+pip-delete-this-directory.txt
+.tox
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.log
+.git
+.mypy_cache
+.pytest_cache
+.hypothesis
+
+# 构建产物
+build/
+dist/
+*.spec
+
+# 文档
+*.md
+*.txt
+*.pdf
+
+# 测试文件
+test_*
+diagnose_*
+debug_*
+
+# 临时文件
+*.tmp
+*.temp
+*.swp
+*.swo
+*~
+
+# 系统文件
+.DS_Store
+Thumbs.db
+
+# IDE相关
+.vscode/
+.idea/
+*.sublime-*
+
+# 其他
+README*
+LICENSE*

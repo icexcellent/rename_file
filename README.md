@@ -1,68 +1,84 @@
-# 智能文件重命名工具
+# FileRenamer - 智能文件重命名工具
 
-一个基于 PyQt6 的智能文件重命名桌面应用，支持扫描件 OCR 识别和 DeepSeek AI 智能重命名。
+## 项目简介
+FileRenamer是一个基于Python的智能文件重命名工具，支持多种文件格式的智能识别和重命名。
 
-## ✨ 主要功能
+## 功能特性
+- **多格式支持**: PDF、图片、文档等
+- **OCR识别**: 支持中英文文本识别
+- **智能分析**: 基于AI的文件内容分析
+- **批量处理**: 支持批量文件重命名
+- **跨平台**: 支持Windows、macOS、Linux
 
-- **🔍 扫描件支持**：PDF 扫描件 → 图片转换 → OCR 识别 → AI 分析
-- **🖼️ 图片文件处理**：直接 OCR 识别 → AI 分析
-- **📄 多种文件格式**：PDF、图片、Word、文本文件等
-- **🤖 AI 智能重命名**：基于 DeepSeek API 的智能分析
-- **📝 实时日志监控**：完整的处理过程日志显示
-- **🔄 批量处理**：支持文件夹批量重命名
-- **📋 回滚功能**：支持重命名操作回滚
+## 技术架构
+- **前端**: PyQt6 GUI界面
+- **后端**: Python 3.11+
+- **OCR引擎**: Tesseract + EasyOCR
+- **AI服务**: DeepSeek API集成
+- **构建工具**: PyInstaller + Docker
 
-## 🚀 技术特性
+## 快速开始
 
-- **OCR 引擎**：EasyOCR + OpenCV，支持中英文识别
-- **PDF 处理**：PyMuPDF，支持扫描件转图片
-- **AI 服务**：DeepSeek Chat API，智能内容分析
-- **GUI 框架**：PyQt6，现代化桌面界面
-- **跨平台**：支持 Windows、macOS、Linux
+### 使用Docker构建（推荐）
 
-## 📦 安装依赖
+1. **确保Docker运行**
+```bash
+docker --version
+```
 
+2. **运行构建脚本**
+```bash
+chmod +x docker_build.sh
+./docker_build.sh
+```
+
+3. **构建完成后**
+- 可执行文件: `./FileRenamer`
+- 支持跨平台运行
+
+### 手动构建
+
+1. **安装依赖**
 ```bash
 pip install -r requirements.txt
 pip install -r requirements_gui.txt
+pip install pyinstaller
 ```
 
-## 🎯 使用方法
-
-1. 配置 DeepSeek API 密钥
-2. 选择源文件或文件夹
-3. 选择目标目录
-4. 选择重命名或复制模式
-5. 开始处理，实时监控进度
-
-## 🔧 构建 Windows 可执行文件
-
-项目已配置 GitHub Actions 自动构建：
-
-1. 推送代码到 `main` 分支
-2. GitHub Actions 自动触发构建
-3. 在 Actions 页面下载生成的 `FileRenamer-windows.zip`
-
-## 📁 项目结构
-
-```
-├── file_renamer_gui.py      # 主 GUI 应用
-├── deepseek_api_service.py  # DeepSeek API 服务
-├── requirements.txt         # 核心依赖
-├── requirements_gui.txt     # GUI 依赖
-├── config.json             # API 配置
-├── app_config.json         # 应用配置
-└── .github/workflows/      # GitHub Actions 配置
+2. **构建应用**
+```bash
+pyinstaller --onefile --windowed --name=FileRenamer file_renamer_gui.py
 ```
 
-## 🎉 最新更新
+## 项目结构
+```
+file_name_demo/
+├── file_renamer_gui.py          # 主程序GUI
+├── deepseek_api_service.py      # AI服务集成
+├── requirements.txt              # 基础依赖
+├── requirements_gui.txt          # GUI依赖
+├── Dockerfile                    # Docker构建配置
+├── docker_build.sh              # Docker构建脚本
+├── .dockerignore                 # Docker忽略文件
+├── test_file/                    # 测试文件目录
+├── app_config.json              # 应用配置
+└── config.json                  # 配置文件
+```
 
-- ✅ 修复 DeepSeek API 调用问题
-- ✅ 完善扫描件 OCR 支持
-- ✅ 优化 GitHub Actions 构建配置
-- ✅ 增强错误处理和日志记录
+## 依赖说明
+- **PyQt6**: GUI框架
+- **pytesseract**: OCR文本识别
+- **opencv-python**: 图像处理
+- **easyocr**: 深度学习OCR
+- **requests**: HTTP客户端
+- **PyInstaller**: 应用打包
 
-## 📄 许可证
+## 构建说明
+项目使用Docker容器化构建，确保：
+- 环境一致性
+- 依赖完整性
+- 跨平台兼容性
+- 构建稳定性
 
-MIT License
-智能重命名
+## 许可证
+本项目仅供学习和研究使用。
