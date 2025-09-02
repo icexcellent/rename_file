@@ -13,17 +13,31 @@ from typing import Optional, Dict, Any
 import time
 
 class DeepSeekAPIService:
-    """DeepSeek API服务类"""
+    """DeepSeek API 服务类"""
     
     def __init__(self):
-        self.api_key = self._load_api_key()
+        self.api_key = None
         self.base_url = "https://api.deepseek.com/v1/chat/completions"
-        self.vision_url = "https://api.deepseek.com/v1/chat/completions"  # Vision 也使用 chat completions 端点
+        self.vision_url = "https://api.deepseek.com/v1/chat/completions"
         self.model = "deepseek-chat"
         self.max_retries = 3
-        self.last_error: Optional[str] = None
-        self.last_suggestion: Optional[str] = None
-
+        self.last_error = None
+        self.last_suggestion = None
+        self.log_callback = None  # 添加日志回调函数
+        
+        # 初始化时加载 API 密钥
+        self.api_key = self._load_api_key()
+    
+    def set_log_callback(self, callback):
+        """设置日志回调函数"""
+        self.log_callback = callback
+    
+    def _log(self, message):
+        """统一的日志输出方法"""
+        if self.log_callback:
+            self.log_callback(message)
+        print(message)  # 同时输出到控制台
+    
     def _set_error(self, error: str, suggestion: Optional[str] = None) -> None:
         self.last_error = error
         self.last_suggestion = suggestion
@@ -48,8 +62,16 @@ class DeepSeekAPIService:
             return None
             
         except Exception as e:
-            print(f"加载配置文件失败: {e}")
+            self._log(f"加载配置文件失败: {e}")
             return None
+    
+    def reload_api_key(self) -> None:
+        """重新加载API密钥"""
+        self.api_key = self._load_api_key()
+        if self.api_key:
+            self._log("API密钥已重新加载")
+        else:
+            self._log("API密钥加载失败")
         
     def is_available(self) -> bool:
         """检查API是否可用"""
@@ -58,85 +80,77 @@ class DeepSeekAPIService:
     def analyze_document_content(self, file_path: Path) -> Optional[str]:
         """分析文档内容，提取关键信息用于重命名"""
         if not self.is_available():
-            print("DeepSeek API密钥未配置")
-            self._set_error("DeepSeek API密钥未配置", "请在应用配置页填写有效的 API Key 并点击‘测试API’")
+            self._log("DeepSeek API密钥未配置")
+            self._set_error("DeepSeek API密钥未配置", "请在应用配置页填写有效的 API Key 并点击'测试API'")
             return None
 
         try:
             # 读取文件内容
             suffix = file_path.suffix.lower()
-            if suffix in ['.jpg', '.jpeg', '.png', '.bmp', '.tif', '.tiff']:
-                # 图片 → Vision
-                return self._analyze_image_directly(file_path)
-
+            
             if suffix == '.pdf':
-                content = self._read_pdf_content(file_path)
+                self._log("处理 PDF 文件...")
+                # 先尝试提取文本
+                content = self._extract_pdf_text(file_path)
+                if content and len(content.strip()) > 10:
+                    self._log(f"PDF 文本提取成功，长度: {len(content)}")
+                    # 有文本内容，使用 DeepSeek Chat API
+                    return self._call_deepseek_api(content, file_path.name)
+                else:
+                    self._log("PDF 文本提取失败或内容为空，尝试 OCR 识别...")
+                    # 文本提取失败，可能是扫描件，使用 OCR
+                    return self._process_scanned_document(file_path)
+            
+            elif suffix in ['.jpg', '.jpeg', '.png', '.bmp', '.tif', '.tiff']:
+                self._log("处理图片文件...")
+                # 图片文件直接使用 OCR
+                return self._process_scanned_document(file_path)
+            
+            elif suffix in ['.txt', '.doc', '.docx', '.rtf']:
+                self._log("处理文本文件...")
+                # 其他文本类文件 → 读取文本后走 Chat
+                content = self._read_text_content(file_path)
                 if content:
                     return self._call_deepseek_api(content, file_path.name)
-                # 若无文本，尝试渲染第一页为图片后走 Vision
-                b64_png = self._render_pdf_first_page_base64(file_path)
-                if b64_png:
-                    return self._analyze_image_base64(b64_png, file_path)
-                self._set_error(
-                    "PDF为扫描版且缺少渲染依赖，无法提取文本",
-                    "建议安装 PyMuPDF: pip install pymupdf；或提供文本版PDF后重试"
-                )
+                self._set_error("无法读取文本内容", "请确认文件编码或改用 PDF/图片后重试")
                 return None
-
-            # 其他文本类文件 → 读取文本后走 Chat
-            content = self._read_text_content(file_path)
-            if content:
-                return self._call_deepseek_api(content, file_path.name)
-            self._set_error("无法读取文本内容", "请确认文件编码或改用 PDF/图片后重试")
-            return None
+            
+            else:
+                self._log("使用启发式命名...")
+                return self._extract_from_filename(file_path)
 
         except Exception as e:
-            print(f"DeepSeek API分析失败: {e}")
-            return None
+            self._log(f"DeepSeek API分析失败: {e}")
+            return self._extract_from_filename(file_path)
     
-    def _read_pdf_content(self, pdf_path: Path) -> Optional[str]:
-        """读取PDF内容"""
+    def _extract_pdf_text(self, pdf_path: Path) -> Optional[str]:
+        """提取 PDF 文本内容"""
         try:
-            # 尝试使用PyMuPDF
+            # 尝试使用 PyMuPDF 提取文本
             import fitz
             doc = fitz.open(str(pdf_path))
             text = ""
-            
-            # 提取前几页文本
-            for page_num in range(min(3, len(doc))):
-                page = doc[page_num]
-                page_text = page.get_text()
-                if page_text:
-                    text += page_text + "\n"
-            
+            for page in doc:
+                text += page.get_text()
             doc.close()
-            return text if text.strip() else None
-            
+            return text.strip()
         except ImportError:
-            print("PyMuPDF未安装，尝试pdfplumber...")
-            try:
-                import pdfplumber
-                with pdfplumber.open(pdf_path) as pdf:
-                    text = ""
-                    for page_num in range(min(3, len(pdf.pages))):
-                        page = pdf.pages[page_num]
-                        page_text = page.extract_text()
-                        if page_text:
-                            text += page_text + "\n"
-                    return text if text.strip() else None
-            except ImportError:
-                print("pdfplumber也未安装")
-                return None
-        except Exception as e:
-            print(f"PDF读取失败: {e}")
+            self._log("PyMuPDF 未安装，尝试其他方法...")
             return None
+        except Exception as e:
+            self._log(f"PDF 文本提取失败: {e}")
+            return None
+    
+    def _read_pdf_content(self, pdf_path: Path) -> Optional[str]:
+        """读取 PDF 内容（兼容性方法）"""
+        return self._extract_pdf_text(pdf_path)
     
     def _read_image_content(self, image_path: Path) -> Optional[str]:
         """读取图片内容（OCR）- 已禁用EasyOCR避免下载模型"""
         try:
             # 禁用EasyOCR，避免下载耗时模型
             # 对于图片文件，直接返回None，让DeepSeek API处理
-            print("图片OCR已禁用，避免下载模型")
+            self._log("图片OCR已禁用，避免下载模型")
             return None
             
             # 原EasyOCR代码已注释
@@ -154,7 +168,7 @@ class DeepSeekAPIService:
             # return None
             
         except Exception as e:
-            print(f"图片OCR失败: {e}")
+            self._log(f"图片OCR失败: {e}")
             return None
     
     def _analyze_image_directly(self, image_path: Path) -> Optional[str]:
@@ -165,7 +179,7 @@ class DeepSeekAPIService:
             if file_size > 10 * 1024 * 1024:  # 10MB 限制
                 msg = f"图片文件过大 ({file_size / 1024 / 1024:.1f}MB)，超过 API 限制"
                 self._set_error(msg, "请使用小于 10MB 的图片文件")
-                print(msg)
+                self._log(msg)
                 return None
             
             # 读取图片并转为base64
@@ -177,13 +191,13 @@ class DeepSeekAPIService:
             if len(b64) > 5000000:  # 5MB base64 限制
                 msg = f"base64 数据过大 ({len(b64)} 字符)，可能超出 API 限制"
                 self._set_error(msg, "请使用较小的图片文件")
-                print(msg)
+                self._log(msg)
                 return None
                 
             return self._analyze_image_base64(b64, image_path)
         except Exception as e:
             msg = f"图片直接分析失败: {e}"
-            print(msg)
+            self._log(msg)
             self._set_error(msg, "请确认网络可达且 API Key 有效；必要时重试")
             return None
 
@@ -213,28 +227,28 @@ class DeepSeekAPIService:
 
             for attempt in range(self.max_retries):
                 try:
-                    print(f"尝试调用 Vision API (第{attempt + 1}次)...")
+                    self._log(f"尝试调用 Vision API (第{attempt + 1}次)...")
                     response = requests.post(self.vision_url, headers=headers, json=data, timeout=45)
                     
                     if response.status_code == 200:
                         result = response.json()
                         if 'choices' in result and result['choices']:
                             content = result['choices'][0]['message']['content'].strip()
-                            print(f"Vision API 调用成功: {content}")
+                            self._log(f"Vision API 调用成功: {content}")
                             return content
                     else:
                         err = f"Vision调用失败[{response.status_code}]: {response.text[:200]}"
-                        print(err)
+                        self._log(err)
                         self._set_error(err, "请确认已开通 Vision 权限且传参格式为 chat.completions")
                         
                         # 如果是格式错误，尝试调试
                         if response.status_code == 422:
-                            print(f"请求数据: {data}")
-                            print(f"完整错误: {response.text}")
+                            self._log(f"请求数据: {data}")
+                            self._log(f"完整错误: {response.text}")
                             
                 except requests.exceptions.RequestException as e:
                     err = f"Vision请求异常: {e}"
-                    print(err)
+                    self._log(err)
                     self._set_error(err, "检查网络与代理设置，稍后重试")
                     
                 if attempt < self.max_retries - 1:
@@ -263,6 +277,106 @@ class DeepSeekAPIService:
         except Exception:
             return None
     
+    def _process_scanned_document(self, file_path: Path) -> Optional[str]:
+        """处理扫描件：转换为图片，OCR 识别，然后调用 DeepSeek API"""
+        try:
+            self._log("开始处理扫描件...")
+            
+            # 如果是 PDF，先转换为图片
+            if file_path.suffix.lower() == '.pdf':
+                self._log("将 PDF 转换为图片...")
+                image_path = self._convert_pdf_to_image(file_path)
+                if not image_path:
+                    self._log("PDF 转图片失败")
+                    return self._extract_from_filename(file_path)
+            else:
+                image_path = file_path
+            
+            # 使用 OCR 识别图片文本
+            self._log("使用 OCR 识别图片文本...")
+            ocr_text = self._extract_text_with_ocr(image_path)
+            
+            if ocr_text and len(ocr_text.strip()) > 10:
+                self._log(f"OCR 识别成功，文本长度: {len(ocr_text)}")
+                self._log(f"OCR 识别内容: {ocr_text[:200]}...")
+                
+                # 将识别出的文本发送给 DeepSeek API
+                return self._call_deepseek_api(ocr_text, file_path.name)
+            else:
+                self._log("OCR 识别失败或内容为空")
+                return self._extract_from_filename(file_path)
+                
+        except Exception as e:
+            self._log(f"扫描件处理失败: {e}")
+            return self._extract_from_filename(file_path)
+    
+    def _convert_pdf_to_image(self, pdf_path: Path) -> Optional[Path]:
+        """将 PDF 第一页转换为图片"""
+        try:
+            import fitz  # PyMuPDF
+            doc = fitz.open(str(pdf_path))
+            if len(doc) == 0:
+                return None
+            
+            # 渲染第一页为高分辨率图片
+            page = doc[0]
+            mat = fitz.Matrix(3, 3)  # 3倍分辨率
+            pix = page.get_pixmap(matrix=mat)
+            
+            # 保存为临时图片文件
+            temp_image_path = pdf_path.parent / f"{pdf_path.stem}_temp.png"
+            pix.save(str(temp_image_path))
+            doc.close()
+            
+            self._log(f"PDF 已转换为图片: {temp_image_path}")
+            return temp_image_path
+            
+        except ImportError:
+            self._log("PyMuPDF 未安装，无法转换 PDF")
+            return None
+        except Exception as e:
+            self._log(f"PDF 转换失败: {e}")
+            return None
+    
+    def _extract_text_with_ocr(self, image_path: Path) -> Optional[str]:
+        """使用 EasyOCR 识别图片文本"""
+        try:
+            import easyocr
+            import cv2
+            
+            self._log("初始化 EasyOCR...")
+            # 初始化 EasyOCR，支持中文和英文
+            reader = easyocr.Reader(['ch_sim', 'en'], gpu=False)
+            
+            self._log("开始 OCR 识别...")
+            # 读取图片
+            image = cv2.imread(str(image_path))
+            if image is None:
+                self._log("无法读取图片")
+                return None
+            
+            # 进行 OCR 识别
+            results = reader.readtext(image)
+            
+            # 提取识别的文本
+            texts = []
+            for (bbox, text, prob) in results:
+                if prob > 0.5:  # 只保留置信度大于 0.5 的文本
+                    texts.append(text.strip())
+            
+            # 合并所有识别的文本
+            full_text = ' '.join(texts)
+            self._log(f"OCR 识别完成，共识别 {len(texts)} 个文本块")
+            
+            return full_text
+            
+        except ImportError:
+            self._log("EasyOCR 未安装，无法进行 OCR 识别")
+            return None
+        except Exception as e:
+            self._log(f"OCR 识别失败: {e}")
+            return None
+    
     def _extract_from_filename(self, file_path: Path) -> Optional[str]:
         """从文件名提取信息（通用启发式，无硬编码样本）。"""
         try:
@@ -289,7 +403,7 @@ class DeepSeekAPIService:
             return self._sanitize_filename(candidate)
 
         except Exception as e:
-            print(f"文件名分析失败: {e}")
+            self._log(f"文件名分析失败: {e}")
             return None
     
     def _read_text_content(self, file_path: Path) -> Optional[str]:
@@ -305,7 +419,7 @@ class DeepSeekAPIService:
                     continue
             return None
         except Exception as e:
-            print(f"文本文件读取失败: {e}")
+            self._log(f"文本文件读取失败: {e}")
             return None
     
     def _call_deepseek_api(self, content: str, filename: str) -> Optional[str]:
@@ -335,7 +449,7 @@ class DeepSeekAPIService:
             # 发送请求
             for attempt in range(self.max_retries):
                 try:
-                    print(f"调用DeepSeek API (第{attempt + 1}次)...")
+                    self._log(f"调用DeepSeek API (第{attempt + 1}次)...")
                     response = requests.post(
                         self.base_url,
                         headers=headers,
@@ -347,24 +461,38 @@ class DeepSeekAPIService:
                         result = response.json()
                         if 'choices' in result and len(result['choices']) > 0:
                             content = result['choices'][0]['message']['content']
-                            print(f"DeepSeek API调用成功！")
-                            return content.strip()
+                            self._log(f"DeepSeek API调用成功！")
+                            self._log(f"API 返回内容: {content}")
+                            
+                            # 检查返回内容是否有效
+                            if content and content.strip() and content.strip() != "无法识别":
+                                return content.strip()
+                            else:
+                                self._log("API 返回内容无效或为空，使用启发式命名")
+                                return None
+                        else:
+                            self._log("API 响应格式异常")
+                            return None
                     else:
-                        print(f"API调用失败，状态码: {response.status_code}")
-                        print(f"错误信息: {response.text}")
+                        self._log(f"API调用失败，状态码: {response.status_code}")
+                        self._log(f"错误信息: {response.text}")
                         
                         # 设置错误信息
                         if response.status_code == 401:
                             self._set_error("API 密钥无效或已过期", "请检查并更新 API 密钥")
                         elif response.status_code == 429:
                             self._set_error("API 调用频率超限", "请稍后重试或检查配额使用情况")
+                        elif response.status_code == 402:
+                            err = f"API 余额不足: {response.text[:100]}"
+                            self._set_error(err, "请充值 DeepSeek API 账户或等待下月重置")
+                            return None
                         elif response.status_code >= 500:
                             self._set_error("DeepSeek 服务器错误", "请稍后重试")
                         else:
                             self._set_error(f"API 调用失败 ({response.status_code})", "请检查网络连接和 API 状态")
                         
                 except requests.exceptions.RequestException as e:
-                    print(f"第{attempt + 1}次尝试失败: {e}")
+                    self._log(f"第{attempt + 1}次尝试失败: {e}")
                     if attempt < self.max_retries - 1:
                         time.sleep(2)
                     else:
@@ -374,7 +502,7 @@ class DeepSeekAPIService:
             return None
             
         except Exception as e:
-            print(f"DeepSeek API调用失败: {e}")
+            self._log(f"DeepSeek API调用失败: {e}")
             return None
     
     def _build_analysis_prompt(self, content: str, filename: str) -> str:
@@ -386,18 +514,23 @@ class DeepSeekAPIService:
 文档内容:
 {content[:2000]}...
 
-请按照以下格式提取信息：
-1. 基金名称（如：展弘稳进1号7期私募基金）
-2. 文档类型（如：临时开放日公告、打款凭证、基本信息表）
-3. 相关日期（如：2025年8月22日）
-4. 客户姓名（如果有）
+请仔细分析文档内容，提取以下信息：
+1. 基金名称或产品名称（如：展弘稳进1号7期私募基金、浦发银行产品等）
+2. 文档类型（如：临时开放日公告、打款凭证、基本信息表、业务凭证、回单等）
+3. 相关日期（如：2025年8月22日、2025-06-06等）
+4. 客户姓名或相关方（如果有）
 
 请直接返回重命名后的文件名，格式为：
 基金名称-文档类型-日期.扩展名
 
-例如：展弘稳进1号7期私募基金-临时开放日公告-20250822.pdf
+例如：
+- 展弘稳进1号7期私募基金-临时开放日公告-20250822.pdf
+- 浦发银行-业务凭证回单-仇健鸣-20250606.pdf
+- 打款凭证-仇健鸣-20250606.pdf
 
-如果无法提取到足够信息，请返回"无法识别"。
+如果确实无法提取到足够信息，请返回"无法识别"。
+
+请确保返回的文件名有意义且包含关键信息。
 """
         return prompt.strip()
     
@@ -424,7 +557,7 @@ class DeepSeekAPIService:
             return None
             
         except Exception as e:
-            print(f"提取重命名信息失败: {e}")
+            self._log(f"提取重命名信息失败: {e}")
             return None
 
     # ===== 以下为通用启发式提取函数（无硬编码特殊样本） =====

@@ -55,12 +55,19 @@ from tqdm import tqdm
 class FileRenamer:
     """文件重命名核心逻辑类"""
     
-    def __init__(self):
+    def __init__(self, log_callback=None):
         self.image_exts = {".jpg", ".jpeg", ".png", ".webp", ".bmp", ".tif", ".tiff"}
         self.pdf_exts = {".pdf"}
         self.docx_exts = {".docx"}
         self.txt_exts = {".txt", ".md", ".csv"}
-        
+        self.log_callback = log_callback  # 添加日志回调函数
+    
+    def _log(self, message):
+        """统一的日志输出方法"""
+        if self.log_callback:
+            self.log_callback(message)
+        print(f"[FileRenamer] {message}")
+    
     def detect_file_type(self, path: Path) -> str:
         """检测文件类型"""
         suffix = path.suffix.lower()
@@ -178,11 +185,11 @@ class FileRenamer:
                     return deepseek_result
                 # 记录失败原因供UI显示
                 if getattr(deepseek_service, 'last_error', None):
-                    self.log_message(f"DeepSeek失败: {deepseek_service.last_error}")
+                    self._log(f"DeepSeek失败: {deepseek_service.last_error}")
                 if getattr(deepseek_service, 'last_suggestion', None):
-                    self.log_message(f"建议: {deepseek_service.last_suggestion}")
+                    self._log(f"建议: {deepseek_service.last_suggestion}")
         except Exception as e:
-            self.log_message(f"DeepSeek调用异常: {e}")
+            self._log(f"DeepSeek调用异常: {e}")
         
         # 2) 退回到原有金融专用提取逻辑
         base_text = self.extract_content_for_naming(path)
@@ -232,7 +239,7 @@ class FileRenamer:
                 return self._extract_filename_info_financial(file_path)
                 
         except Exception as e:
-            self.log_message(f"内容提取失败 {file_path}: {str(e)}")
+            self._log(f"内容提取失败 {file_path}: {str(e)}")
             return file_path.stem
     
     def _extract_image_content_financial(self, file_path):
@@ -244,12 +251,12 @@ class FileRenamer:
                 if deepseek_service.is_available():
                     deepseek_result = deepseek_service.extract_renaming_info(file_path)
                     if deepseek_result:
-                        self.log_message(f"DeepSeek API识别成功: {deepseek_result}")
+                        self._log(f"DeepSeek API识别成功: {deepseek_result}")
                         return deepseek_result.replace(file_path.suffix, '')  # 返回不带扩展名的名称
             except ImportError:
                 pass  # DeepSeek服务未安装
             except Exception as e:
-                self.log_message(f"DeepSeek API调用失败，回退到传统OCR: {e}")
+                self._log(f"DeepSeek API调用失败，回退到传统OCR: {e}")
                 pass  # DeepSeek失败，继续使用传统OCR
             
             # 2. 备选方案：AI OCR服务（已禁用，避免下载模型）
@@ -264,7 +271,7 @@ class FileRenamer:
             # except ImportError:
             #     pass  # AI OCR服务未安装
             # except Exception as e:
-            #     self.log_message(f"AI OCR服务调用失败，回退到传统OCR: {e}")
+            #     self._log(f"AI OCR服务调用失败，回退到传统OCR: {e}")
             #     pass  # AI OCR失败，继续使用传统OCR
             
             # 2. 使用传统OCR（pytesseract）
@@ -285,7 +292,7 @@ class FileRenamer:
             return extracted_info if extracted_info else file_path.stem
             
         except Exception as e:
-            self.log_message(f"图片OCR失败 {file_path}: {str(e)}")
+            self._log(f"图片OCR失败 {file_path}: {str(e)}")
             return self._extract_filename_info_financial(file_path)
     
     def _extract_pdf_content_financial(self, file_path):
@@ -297,12 +304,12 @@ class FileRenamer:
                 if deepseek_service.is_available():
                     deepseek_result = deepseek_service.extract_renaming_info(file_path)
                     if deepseek_result:
-                        self.log_message(f"DeepSeek API识别成功: {deepseek_result}")
+                        self._log(f"DeepSeek API识别成功: {deepseek_result}")
                         return deepseek_result.replace(file_path.suffix, '')  # 返回不带扩展名的名称
             except ImportError:
                 pass  # DeepSeek服务未安装
             except Exception as e:
-                self.log_message(f"DeepSeek API调用失败，回退到传统方法: {e}")
+                self._log(f"DeepSeek API调用失败，回退到传统方法: {e}")
                 pass  # DeepSeek失败，继续使用传统方法
             
             # 2. 备选方案：AI OCR服务（处理扫描版PDF，已禁用，避免下载模型）
@@ -317,7 +324,7 @@ class FileRenamer:
             # except ImportError:
             #     pass  # AI OCR服务未安装
             # except Exception as e:
-            #     self.log_message(f"PDF AI OCR服务调用失败，回退到传统方法: {e}")
+            #     self._log(f"PDF AI OCR服务调用失败，回退到传统方法: {e}")
             #     pass  # AI OCR失败，继续使用传统方法
             
             # 2. 使用pdfplumber（更好的文本提取）
@@ -339,7 +346,7 @@ class FileRenamer:
             except ImportError:
                 pass  # pdfplumber未安装，继续使用pypdf
             except Exception as e:
-                self.log_message(f"pdfplumber提取失败 {file_path}: {str(e)}")
+                self._log(f"pdfplumber提取失败 {file_path}: {str(e)}")
             
             # 3. 使用pypdf作为备选方案
             with open(file_path, 'rb') as file:
@@ -367,7 +374,7 @@ class FileRenamer:
             return extracted_info if extracted_info else file_path.stem
                 
         except Exception as e:
-            self.log_message(f"PDF解析失败 {file_path}: {str(e)}")
+            self._log(f"PDF解析失败 {file_path}: {str(e)}")
             return self._extract_filename_info_financial(file_path)
     
     def _extract_docx_content_financial(self, file_path):
@@ -389,7 +396,7 @@ class FileRenamer:
             return self._extract_filename_info_financial(file_path)
             
         except Exception as e:
-            self.log_message(f"DOCX解析失败 {file_path}: {str(e)}")
+            self._log(f"DOCX解析失败 {file_path}: {str(e)}")
             return self._extract_filename_info_financial(file_path)
     
     def _extract_text_content_financial(self, file_path):
@@ -422,7 +429,7 @@ class FileRenamer:
             return self._extract_filename_info_financial(file_path)
             
         except Exception as e:
-            self.log_message(f"文本文件读取失败 {file_path}: {str(e)}")
+            self._log(f"文本文件读取失败 {file_path}: {str(e)}")
             return self._extract_filename_info_financial(file_path)
     
     def _extract_financial_keywords(self, text):
@@ -605,7 +612,7 @@ class FileRenamer:
     
     def log_message(self, message: str):
         """记录日志消息（GUI模式下输出到控制台）"""
-        print(f"[FileRenamer] {message}")
+        self._log(f"[FileRenamer] {message}")
 
 
 class RenameWorker(QThread):
@@ -616,14 +623,21 @@ class RenameWorker(QThread):
     error_occurred = pyqtSignal(str)         # error message
     
     def __init__(self, source_paths: List[Path], target_dir: Path, 
-                 config: Dict[str, Any], copy_mode: bool = False):
+                 config: Dict[str, Any], copy_mode: bool = False, log_callback=None):
         super().__init__()
         self.source_paths = source_paths
         self.target_dir = target_dir
         self.config = config
         self.copy_mode = copy_mode
-        self.renamer = FileRenamer()
+        self.log_callback = log_callback
+        self.renamer = FileRenamer(log_callback=log_callback)
         self.rename_log = []
+    
+    def log_message(self, message: str):
+        """记录日志消息（GUI模式下输出到控制台和执行日志区域）"""
+        if self.log_callback:
+            self.log_callback(message)
+        print(f"[RenameWorker] {message}")
     
     def run(self):
         try:
@@ -700,7 +714,7 @@ class RenameWorker(QThread):
                 
             except Exception as e:
                 error_count += 1
-                self.error_occurred.emit(f"处理文件 {file_path.name} 时出错: {str(e)}")
+                self.log_message(f"处理文件 {file_path.name} 时出错: {str(e)}")
         
         return {
             'total': total_files,
@@ -722,6 +736,24 @@ class FileRenamerGUI(QMainWindow):
         
         self.init_ui()
         self.load_config()
+        
+        # 设置 DeepSeek API 服务的日志回调
+        try:
+            from deepseek_api_service import deepseek_service
+            deepseek_service.set_log_callback(self.log_message)
+        except ImportError:
+            pass  # DeepSeek 服务未安装
+    
+    def log_message(self, message: str):
+        """记录日志消息（GUI模式下输出到控制台和执行日志区域）"""
+        print(f"[FileRenamerGUI] {message}")
+        # 如果GUI已初始化，也输出到执行日志区域
+        if hasattr(self, 'log_text') and self.log_text:
+            self.log_text.append(f"[{datetime.now().strftime('%H:%M:%S')}] {message}")
+            # 滚动到底部
+            self.log_text.verticalScrollBar().setValue(
+                self.log_text.verticalScrollBar().maximum()
+            )
     
     def init_ui(self):
         """初始化界面"""
@@ -812,7 +844,7 @@ class FileRenamerGUI(QMainWindow):
         
         # 统一文件选择按钮
         file_btn_layout = QHBoxLayout()
-        self.select_files_btn = QPushButton("📂 选择文件或文件夹")
+        self.select_files_btn = QPushButton("�� 选择文件或文件夹")
         self.select_files_btn.setStyleSheet("""
             QPushButton {
                 background-color: #3498db;
@@ -1679,7 +1711,7 @@ class FileRenamerGUI(QMainWindow):
         copy_mode = self.copy_mode_radio.isChecked()
         config = self.get_config()
         
-        self.worker = RenameWorker(self.source_paths, self.target_dir, config, copy_mode)
+        self.worker = RenameWorker(self.source_paths, self.target_dir, config, copy_mode, self.log_message)
         self.worker.progress_updated.connect(self.update_progress)
         self.worker.file_processed.connect(self.log_file_processed)
         self.worker.finished.connect(self.rename_finished)
@@ -1855,6 +1887,13 @@ class FileRenamerGUI(QMainWindow):
                 # 更新API状态显示
                 self.api_status_label.setText("API状态: 已配置")
                 self.api_status_label.setStyleSheet("color: green; margin: 5px;")
+                
+                # 重新加载 DeepSeek API 密钥
+                try:
+                    from deepseek_api_service import deepseek_service
+                    deepseek_service.reload_api_key()
+                except ImportError:
+                    pass
             
             # 保存重命名规则配置
             app_config = {

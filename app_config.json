@@ -1,0 +1,10 @@
+{
+    "extract_len": 120,
+    "max_len": 60,
+    "lowercase": true,
+    "space_to_underscore": true,
+    "include_images": true,
+    "include_pdfs": true,
+    "include_docs": true,
+    "copy_mode": true
+}
