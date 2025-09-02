@@ -42,7 +42,7 @@ jobs:
       run: |
         echo "Starting PyInstaller build..."
         
-        # 使用优化的打包配置
+        # 使用优化的打包配置，保留必要的模块
         pyinstaller --onefile --windowed --name=FileRenamer \
           --clean --optimize=2 --strip --upx-dir=/usr/local/bin \
           --exclude-module=matplotlib --exclude-module=numpy \
@@ -55,16 +55,13 @@ jobs:
           --exclude-module=IPython --exclude-module=jupyter \
           --exclude-module=notebook --exclude-module=sphinx \
           --exclude-module=docutils --exclude-module=pytest \
-          --exclude-module=unittest --exclude-module=email \
-          --exclude-module=http --exclude-module=urllib3 \
-          --exclude-module=requests --exclude-module=sqlite3 \
+          --exclude-module=unittest --exclude-module=sqlite3 \
           --exclude-module=xml --exclude-module=html \
           --exclude-module=xmlrpc --exclude-module=multiprocessing \
           --exclude-module=concurrent --exclude-module=asyncio \
-          --exclude-module=logging --exclude-module=argparse \
-          --exclude-module=getopt --exclude-module=doctest \
-          --exclude-module=pdb --exclude-module=profile \
-          --exclude-module=cProfile \
+          --exclude-module=argparse --exclude-module=getopt \
+          --exclude-module=doctest --exclude-module=pdb \
+          --exclude-module=profile --exclude-module=cProfile \
           --hidden-import=PyQt6.QtCore \
           --hidden-import=PyQt6.QtWidgets \
           --hidden-import=PyQt6.QtGui \
@@ -74,6 +71,21 @@ jobs:
           --hidden-import=chardet \
           --hidden-import=PIL \
           --hidden-import=PIL.Image \
+          --hidden-import=logging \
+          --hidden-import=tqdm \
+          --hidden-import=requests \
+          --hidden-import=urllib3 \
+          --hidden-import=requests.adapters \
+          --hidden-import=requests.auth \
+          --hidden-import=requests.cookies \
+          --hidden-import=requests.models \
+          --hidden-import=requests.sessions \
+          --hidden-import=requests.structures \
+          --hidden-import=requests.utils \
+          --hidden-import=urllib3.util \
+          --hidden-import=urllib3.poolmanager \
+          --hidden-import=urllib3.connection \
+          --hidden-import=urllib3.response \
           file_renamer_gui.py
           
         echo "PyInstaller build completed"
@@ -119,9 +131,11 @@ jobs:
         ## Changes in this build:
         - Optimized dependencies and removed unused libraries
         - Excluded unnecessary Python modules (numpy, pandas, etc.)
+        - Preserved essential modules (logging, requests, urllib3, tqdm)
         - Enabled PyInstaller optimizations (--strip, --optimize=2)
         - Enabled UPX compression for additional size reduction
         - Reduced file size significantly from ~500MB
+        - Fixed runtime compatibility issues
         
         ## Installation:
         1. Download the App file

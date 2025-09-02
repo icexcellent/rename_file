@@ -18,7 +18,7 @@ def test_exe_module_availability(exe_path):
     print(f"🔍 诊断EXE文件: {exe_path}")
     
     # 创建诊断脚本
-    diagnostic_script = """
+    diagnostic_script = '''
 import sys
 import traceback
 
@@ -133,7 +133,7 @@ def main():
 
 if __name__ == "__main__":
     main()
-"""
+'''
     
     # 写入临时诊断脚本
     diagnostic_file = "temp_diagnostic.py"
