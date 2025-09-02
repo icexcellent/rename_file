@@ -76,7 +76,8 @@ jobs:
         if (Test-Path "FileRenamer.spec") { Remove-Item -Force "FileRenamer.spec" }
         
         # 保留API功能必需的模块，排除其他不必要的模块
-        pyinstaller --onefile --windowed --name=FileRenamer --clean --exclude-module=numpy --exclude-module=pandas --exclude-module=matplotlib --exclude-module=scipy --exclude-module=sklearn --exclude-module=tensorflow --exclude-module=torch --exclude-module=cv2 --exclude-module=opencv --exclude-module=rapidocr --exclude-module=tkinter --exclude-module=wx --exclude-module=kivy --exclude-module=IPython --exclude-module=jupyter --exclude-module=notebook --exclude-module=sphinx --exclude-module=docutils --exclude-module=pytest --exclude-module=unittest --exclude-module=email --exclude-module=http --exclude-module=urllib3 --exclude-module=sqlite3 --exclude-module=xml --exclude-module=html --exclude-module=xmlrpc --exclude-module=multiprocessing --exclude-module=concurrent --exclude-module=asyncio --exclude-module=argparse --exclude-module=getopt --exclude-module=doctest --exclude-module=pdb --exclude-module=profile --exclude-module=cProfile --hidden-import=PyQt6.QtCore --hidden-import=PyQt6.QtWidgets --hidden-import=PyQt6.QtGui --hidden-import=pytesseract --hidden-import=pypdf --hidden-import=docx --hidden-import=chardet --hidden-import=PIL --hidden-import=PIL.Image --hidden-import=logging --hidden-import=tqdm --hidden-import=requests --hidden-import=urllib3 file_renamer_gui.py
+        # 注意：不能排除urllib3，因为requests依赖它
+        pyinstaller --onefile --windowed --name=FileRenamer --clean --exclude-module=numpy --exclude-module=pandas --exclude-module=matplotlib --exclude-module=scipy --exclude-module=sklearn --exclude-module=tensorflow --exclude-module=torch --exclude-module=cv2 --exclude-module=opencv --exclude-module=rapidocr --exclude-module=tkinter --exclude-module=wx --exclude-module=kivy --exclude-module=IPython --exclude-module=jupyter --exclude-module=notebook --exclude-module=sphinx --exclude-module=docutils --exclude-module=pytest --exclude-module=unittest --exclude-module=email --exclude-module=http --exclude-module=sqlite3 --exclude-module=xml --exclude-module=html --exclude-module=xmlrpc --exclude-module=multiprocessing --exclude-module=concurrent --exclude-module=asyncio --exclude-module=argparse --exclude-module=getopt --exclude-module=doctest --exclude-module=pdb --exclude-module=profile --exclude-module=cProfile --hidden-import=PyQt6.QtCore --hidden-import=PyQt6.QtWidgets --hidden-import=PyQt6.QtGui --hidden-import=pytesseract --hidden-import=pypdf --hidden-import=docx --hidden-import=chardet --hidden-import=PIL --hidden-import=PIL.Image --hidden-import=logging --hidden-import=tqdm --hidden-import=requests --hidden-import=urllib3 file_renamer_gui.py
           
         if (Test-Path "dist\FileRenamer.exe") {
           $size = (Get-Item "dist\FileRenamer.exe").Length / 1MB
@@ -133,6 +134,10 @@ jobs:
         - File size reduced significantly
         - Runtime compatibility ensured
         - API functionality preserved
+        
+        ## Important Notes:
+        - urllib3 is NOT excluded because requests depends on it
+        - This ensures API functionality works correctly
         "@
         
         $report | Out-File -FilePath "build-report.md" -Encoding UTF8
