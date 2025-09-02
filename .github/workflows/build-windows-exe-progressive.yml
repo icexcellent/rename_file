@@ -33,6 +33,13 @@ jobs:
         pip install pyinstaller
         echo "PyInstaller installed successfully"
         
+    - name: Check requests availability
+      run: |
+        echo "Checking requests module availability..."
+        python -c "import requests; print(f'requests version: {requests.__version__}')"
+        python -c "import urllib3; print(f'urllib3 version: {urllib3.__version__}')"
+        echo "Requests module check completed"
+        
     - name: Build Level 1 (Basic exclusions)
       run: |
         echo "Starting Level 1 build (basic exclusions)..."
@@ -66,18 +73,17 @@ jobs:
           exit 1
         }
         
-    - name: Build Level 3 (API-compatible exclusions)
+    - name: Build Level 3 (Force include requests)
       run: |
-        echo "Starting Level 3 build (API-compatible exclusions)..."
+        echo "Starting Level 3 build (force include requests)..."
         
         # 清理之前的构建
         if (Test-Path "dist") { Remove-Item -Recurse -Force "dist" }
         if (Test-Path "build") { Remove-Item -Recurse -Force "build" }
         if (Test-Path "FileRenamer.spec") { Remove-Item -Force "FileRenamer.spec" }
         
-        # 保留API功能必需的模块，排除其他不必要的模块
-        # 注意：不能排除urllib3，因为requests依赖它
-        pyinstaller --onefile --windowed --name=FileRenamer --clean --exclude-module=numpy --exclude-module=pandas --exclude-module=matplotlib --exclude-module=scipy --exclude-module=sklearn --exclude-module=tensorflow --exclude-module=torch --exclude-module=cv2 --exclude-module=opencv --exclude-module=rapidocr --exclude-module=tkinter --exclude-module=wx --exclude-module=kivy --exclude-module=IPython --exclude-module=jupyter --exclude-module=notebook --exclude-module=sphinx --exclude-module=docutils --exclude-module=pytest --exclude-module=unittest --exclude-module=email --exclude-module=http --exclude-module=sqlite3 --exclude-module=xml --exclude-module=html --exclude-module=xmlrpc --exclude-module=multiprocessing --exclude-module=concurrent --exclude-module=asyncio --exclude-module=argparse --exclude-module=getopt --exclude-module=doctest --exclude-module=pdb --exclude-module=profile --exclude-module=cProfile --hidden-import=PyQt6.QtCore --hidden-import=PyQt6.QtWidgets --hidden-import=PyQt6.QtGui --hidden-import=pytesseract --hidden-import=pypdf --hidden-import=docx --hidden-import=chardet --hidden-import=PIL --hidden-import=PIL.Image --hidden-import=logging --hidden-import=tqdm --hidden-import=requests --hidden-import=urllib3 file_renamer_gui.py
+        # 强制包含requests相关模块，使用更激进的排除策略
+        pyinstaller --onefile --windowed --name=FileRenamer --clean --exclude-module=numpy --exclude-module=pandas --exclude-module=matplotlib --exclude-module=scipy --exclude-module=sklearn --exclude-module=tensorflow --exclude-module=torch --exclude-module=cv2 --exclude-module=opencv --exclude-module=rapidocr --exclude-module=tkinter --exclude-module=wx --exclude-module=kivy --exclude-module=IPython --exclude-module=jupyter --exclude-module=notebook --exclude-module=sphinx --exclude-module=docutils --exclude-module=pytest --exclude-module=unittest --exclude-module=email --exclude-module=http --exclude-module=sqlite3 --exclude-module=xml --exclude-module=html --exclude-module=xmlrpc --exclude-module=multiprocessing --exclude-module=concurrent --exclude-module=asyncio --exclude-module=argparse --exclude-module=getopt --exclude-module=doctest --exclude-module=pdb --exclude-module=profile --exclude-module=cProfile --hidden-import=PyQt6.QtCore --hidden-import=PyQt6.QtWidgets --hidden-import=PyQt6.QtGui --hidden-import=pytesseract --hidden-import=pypdf --hidden-import=docx --hidden-import=chardet --hidden-import=PIL --hidden-import=PIL.Image --hidden-import=logging --hidden-import=tqdm --hidden-import=requests --hidden-import=urllib3 --hidden-import=requests.adapters --hidden-import=requests.auth --hidden-import=requests.cookies --hidden-import=requests.models --hidden-import=requests.sessions --hidden-import=requests.structures --hidden-import=requests.utils --hidden-import=urllib3.util --hidden-import=urllib3.poolmanager --hidden-import=urllib3.connection --hidden-import=urllib3.response file_renamer_gui.py
           
         if (Test-Path "dist\FileRenamer.exe") {
           $size = (Get-Item "dist\FileRenamer.exe").Length / 1MB
@@ -121,22 +127,23 @@ jobs:
         
         **Build Date:** $version
         **Final File Size:** $sizeFormatted MB
-        **Build Type:** Progressive optimization (3 levels) - API-compatible exclusions
+        **Build Type:** Progressive optimization (3 levels) - Force include requests
         
         ## Build Levels:
         - Level 1: Basic exclusions (numpy, pandas, matplotlib, scipy, sklearn)
         - Level 2: ML/AI exclusions (tensorflow, torch, cv2, opencv, rapidocr)
-        - Level 3: API-compatible exclusions (preserves requests, urllib3 for API functionality)
+        - Level 3: Force include requests (all requests submodules included)
         
         ## Result:
         - All levels built successfully
         - Progressive optimization achieved
         - File size reduced significantly
         - Runtime compatibility ensured
-        - API functionality preserved
+        - API functionality preserved with force-included requests
         
         ## Important Notes:
         - urllib3 is NOT excluded because requests depends on it
+        - All requests submodules are explicitly included
         - This ensures API functionality works correctly
         "@
         
