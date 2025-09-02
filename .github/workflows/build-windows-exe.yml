@@ -33,45 +33,81 @@ jobs:
         pip install pyinstaller
         echo "PyInstaller installed successfully"
         
-    - name: Build optimized EXE
+    - name: Check Python environment
       run: |
-        echo "Starting PyInstaller build..."
+        python --version
+        pip list
+        echo "Python environment check completed"
         
-        # 使用优化的打包配置
-        pyinstaller --onefile --windowed --name=FileRenamer ^
-          --clean --optimize=2 --strip ^
-          --exclude-module=matplotlib --exclude-module=numpy ^
-          --exclude-module=pandas --exclude-module=scipy ^
-          --exclude-module=sklearn --exclude-module=tensorflow ^
-          --exclude-module=torch --exclude-module=onnxruntime ^
-          --exclude-module=cv2 --exclude-module=opencv ^
-          --exclude-module=rapidocr --exclude-module=tkinter ^
-          --exclude-module=wx --exclude-module=kivy ^
-          --exclude-module=IPython --exclude-module=jupyter ^
-          --exclude-module=notebook --exclude-module=sphinx ^
-          --exclude-module=docutils --exclude-module=pytest ^
-          --exclude-module=unittest --exclude-module=email ^
-          --exclude-module=http --exclude-module=urllib3 ^
-          --exclude-module=requests --exclude-module=sqlite3 ^
-          --exclude-module=xml --exclude-module=html ^
-          --exclude-module=xmlrpc --exclude-module=multiprocessing ^
-          --exclude-module=concurrent --exclude-module=asyncio ^
-          --exclude-module=logging --exclude-module=argparse ^
-          --exclude-module=getopt --exclude-module=doctest ^
-          --exclude-module=pdb --exclude-module=profile ^
-          --exclude-module=cProfile ^
-          --hidden-import=PyQt6.QtCore ^
-          --hidden-import=PyQt6.QtWidgets ^
-          --hidden-import=PyQt6.QtGui ^
-          --hidden-import=pytesseract ^
-          --hidden-import=pypdf ^
-          --hidden-import=docx ^
-          --hidden-import=chardet ^
-          --hidden-import=PIL ^
-          --hidden-import=PIL.Image ^
+    - name: Test basic PyInstaller
+      run: |
+        echo "Testing basic PyInstaller functionality..."
+        pyinstaller --version
+        echo "PyInstaller test completed"
+        
+    - name: Build EXE (step by step)
+      run: |
+        echo "Starting step-by-step build..."
+        
+        # 第一步：基本构建测试
+        echo "Step 1: Basic build test..."
+        pyinstaller --onefile --windowed --name=FileRenamer \
+          --clean \
           file_renamer_gui.py
           
-        echo "PyInstaller build completed"
+        if (Test-Path "dist\FileRenamer.exe") {
+          echo "Basic build successful!"
+          $size = (Get-Item "dist\FileRenamer.exe").Length / 1MB
+          Write-Host "Basic EXE size: $([math]::Round($size, 2)) MB"
+        } else {
+          echo "Basic build failed!"
+          exit 1
+        }
+        
+    - name: Build optimized EXE (if basic succeeds)
+      run: |
+        echo "Starting optimized build..."
+        
+        # 清理之前的构建
+        if (Test-Path "dist") { Remove-Item -Recurse -Force "dist" }
+        if (Test-Path "build") { Remove-Item -Recurse -Force "build" }
+        if (Test-Path "FileRenamer.spec") { Remove-Item -Force "FileRenamer.spec" }
+        
+        # 使用优化的打包配置
+        pyinstaller --onefile --windowed --name=FileRenamer \
+          --clean --optimize=2 \
+          --exclude-module=matplotlib --exclude-module=numpy \
+          --exclude-module=pandas --exclude-module=scipy \
+          --exclude-module=sklearn --exclude-module=tensorflow \
+          --exclude-module=torch --exclude-module=onnxruntime \
+          --exclude-module=cv2 --exclude-module=opencv \
+          --exclude-module=rapidocr --exclude-module=tkinter \
+          --exclude-module=wx --exclude-module=kivy \
+          --exclude-module=IPython --exclude-module=jupyter \
+          --exclude-module=notebook --exclude-module=sphinx \
+          --exclude-module=docutils --exclude-module=pytest \
+          --exclude-module=unittest --exclude-module=email \
+          --exclude-module=http --exclude-module=urllib3 \
+          --exclude-module=requests --exclude-module=sqlite3 \
+          --exclude-module=xml --exclude-module=html \
+          --exclude-module=xmlrpc --exclude-module=multiprocessing \
+          --exclude-module=concurrent --exclude-module=asyncio \
+          --exclude-module=logging --exclude-module=argparse \
+          --exclude-module=getopt --exclude-module=doctest \
+          --exclude-module=pdb --exclude-module=profile \
+          --exclude-module=cProfile \
+          --hidden-import=PyQt6.QtCore \
+          --hidden-import=PyQt6.QtWidgets \
+          --hidden-import=PyQt6.QtGui \
+          --hidden-import=pytesseract \
+          --hidden-import=pypdf \
+          --hidden-import=docx \
+          --hidden-import=chardet \
+          --hidden-import=PIL \
+          --hidden-import=PIL.Image \
+          file_renamer_gui.py
+          
+        echo "Optimized build completed"
         
     - name: Check file size
       run: |
@@ -86,6 +122,10 @@ jobs:
           }
         } else {
           Write-Host "Error: EXE file not found"
+          echo "Contents of current directory:"
+          dir
+          echo "Contents of dist directory (if exists):"
+          if (Test-Path "dist") { dir dist } else { echo "dist directory does not exist" }
           exit 1
         }
         
@@ -107,12 +147,12 @@ jobs:
         
         **Build Date:** $version
         **File Size:** $sizeFormatted MB
-        **Build Type:** Optimized (Stripped & Excluded unnecessary modules)
+        **Build Type:** Optimized (Excluded unnecessary modules)
         
         ## Changes in this build:
         - Optimized dependencies and removed unused libraries
         - Excluded unnecessary Python modules (numpy, pandas, etc.)
-        - Enabled PyInstaller optimizations (--strip, --optimize=2)
+        - Enabled PyInstaller optimizations (--optimize=2)
         - Reduced file size significantly from ~500MB
         
         ## Installation:
