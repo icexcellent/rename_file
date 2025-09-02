@@ -377,7 +377,8 @@ class DeepSeekAPIService:
                         reader = easyocr.Reader(['ch_sim', 'en'], gpu=False, model_storage_directory=str(local_models_dir.absolute()))
                     else:
                         self._log("使用默认模型下载初始化...")
-                        reader = easyocr.Reader(['ch_sim', 'en'], gpu=False)
+                        # 设置更长的超时时间和重试机制
+                        reader = easyocr.Reader(['ch_sim', 'en'], gpu=False, download_enabled=True)
                     self._log("EasyOCR Reader 初始化成功")
                 except Exception as e:
                     init_error = e
@@ -390,21 +391,34 @@ class DeepSeekAPIService:
             init_thread.daemon = True
             init_thread.start()
             
-            # 等待初始化完成，最多等待60秒（本地模型应该很快）
-            timeout = 60 if local_models_dir.exists() and list(local_models_dir.glob("*.pth")) else 30
+            # 等待初始化完成，本地模型60秒，网络下载120秒
+            timeout = 120 if not (local_models_dir.exists() and list(local_models_dir.glob("*.pth"))) else 60
             start_time = time.time()
             while init_thread.is_alive() and (time.time() - start_time) < timeout:
-                time.sleep(0.5)
+                time.sleep(1)
+                # 每10秒显示一次进度
+                elapsed = int(time.time() - start_time)
+                if elapsed % 10 == 0 and elapsed > 0:
+                    self._log(f"EasyOCR 初始化进行中... ({elapsed}/{timeout}秒)")
             
             if init_thread.is_alive():
                 # 超时，记录超时信息
                 self._log(f"EasyOCR 初始化超时（{timeout}秒）")
+                self._log("建议：检查网络连接或使用本地模型文件")
                 return None
             
             if init_error:
                 self._log(f"EasyOCR 初始化出错，停止执行")
                 self._log(f"错误类型: {type(init_error).__name__}")
                 self._log(f"错误信息: {str(init_error)}")
+                
+                # 如果是网络错误，提供具体建议
+                if "WinError 10060" in str(init_error) or "timeout" in str(init_error).lower():
+                    self._log("网络连接超时，建议：")
+                    self._log("1. 检查网络连接")
+                    self._log("2. 使用代理或VPN")
+                    self._log("3. 下载模型文件到本地")
+                
                 return None
             
             if reader is None:
@@ -438,11 +452,15 @@ class DeepSeekAPIService:
             ocr_thread.daemon = True
             ocr_thread.start()
             
-            # 等待OCR识别完成，最多等待60秒
-            ocr_timeout = 60
+            # 等待OCR识别完成，最多等待120秒
+            ocr_timeout = 120
             ocr_start_time = time.time()
             while ocr_thread.is_alive() and (time.time() - ocr_start_time) < ocr_timeout:
-                time.sleep(0.5)
+                time.sleep(1)
+                # 每10秒显示一次进度
+                elapsed = int(time.time() - ocr_start_time)
+                if elapsed % 10 == 0 and elapsed > 0:
+                    self._log(f"OCR 识别进行中... ({elapsed}/{ocr_timeout}秒)")
             
             if ocr_thread.is_alive():
                 self._log(f"EasyOCR 识别超时（{ocr_timeout}秒）")
