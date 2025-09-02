@@ -10,7 +10,7 @@ The windows-latest label will migrate from Windows Server 2022 to Windows Server
 ```
 
 **解决方案**：
-- 使用具体的Windows版本标签：`runs-on: windows-2022`
+- 已修复：使用具体的Windows版本标签：`runs-on: windows-2022`
 - 避免使用 `windows-latest` 标签
 
 #### 问题：PyInstaller构建失败
@@ -22,7 +22,7 @@ The windows-latest label will migrate from Windows Server 2022 to Windows Server
 **解决方案**：
 1. 检查Python版本（推荐3.11+）
 2. 确保所有依赖正确安装
-3. 使用简化的构建配置进行测试
+3. 查看构建日志获取详细错误信息
 
 ### 2. macOS构建失败
 
@@ -36,32 +36,18 @@ The windows-latest label will migrate from Windows Server 2022 to Windows Server
 - 检查文件权限
 - 确保工作目录正确
 
-## 🔧 构建配置优化
+## 🔧 当前构建配置
 
-### 推荐配置
+### 已优化的工作流
+1. **build-windows-exe.yml** - Windows优化构建
+2. **build-macos-app.yml** - macOS优化构建
 
-#### Windows (稳定版)
-```yaml
-runs-on: windows-2022
-python-version: '3.11'
-```
-
-#### macOS (稳定版)
-```yaml
-runs-on: macos-latest
-python-version: '3.11'
-```
-
-### 构建策略
-
-#### 策略1：渐进式优化
-1. 先使用简单配置确保构建成功
-2. 逐步添加优化参数
-3. 测试每个优化步骤
-
-#### 策略2：双配置
-- 保留一个简单配置作为备用
-- 使用优化配置进行瘦身构建
+### 配置特点
+- ✅ 使用稳定的runner标签
+- ✅ 启用pip缓存加速
+- ✅ 30分钟超时保护
+- ✅ 完整的瘦身优化
+- ✅ 自动文件大小检查
 
 ## 📋 故障排除步骤
 
@@ -79,35 +65,29 @@ pip install -r requirements_gui.txt
 pyinstaller --onefile --windowed file_renamer_gui.py
 ```
 
-### 步骤3：简化配置
-使用最基础的PyInstaller命令：
+### 步骤3：检查依赖
 ```bash
-pyinstaller --onefile --windowed file_renamer_gui.py
+# 查看已安装的包
+pip list
+
+# 检查特定包
+pip show PyQt6
+pip show pytesseract
 ```
 
-### 步骤4：逐步添加优化
-```bash
-# 添加基本优化
-pyinstaller --onefile --windowed --clean file_renamer_gui.py
+## 🎯 构建优化状态
 
-# 添加模块排除
-pyinstaller --onefile --windowed --clean \
-  --exclude-module=numpy \
-  --exclude-module=pandas \
-  file_renamer_gui.py
-```
+### 已实现的优化
+- ✅ 移除未使用的依赖 (rapidocr-onnxruntime)
+- ✅ 排除不必要的Python模块
+- ✅ 启用PyInstaller优化 (--strip, --optimize=2)
+- ✅ 启用UPX压缩 (macOS)
+- ✅ 使用稳定的runner标签
 
-## 🎯 当前配置状态
-
-### 已配置的工作流
-1. **build-windows-exe.yml** - 完整优化配置
-2. **build-windows-exe-simple.yml** - 简化配置（备用）
-3. **build-macos-app.yml** - macOS优化配置
-
-### 建议使用顺序
-1. 先测试简化配置确保基本构建成功
-2. 成功后再使用优化配置进行瘦身
-3. 如果优化配置失败，回退到简化配置
+### 预期效果
+- **原大小**: ~500MB
+- **优化后**: 100-200MB
+- **减少幅度**: 60-80%
 
 ## 📞 获取帮助
 
@@ -124,3 +104,11 @@ pyinstaller --onefile --windowed --clean \
 1. 查看构建日志获取详细错误信息
 2. 在GitHub Issues中报告问题
 3. 提供完整的错误日志和配置信息
+
+## 🔄 工作流更新历史
+
+### 最新更新
+- 删除了冗余的 `windows-build.yml` 和 `build-windows-exe-simple.yml`
+- 保留了最优化和稳定的两个工作流
+- 统一了Windows和macOS的构建配置
+- 添加了超时保护和pip缓存优化

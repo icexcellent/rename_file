@@ -5,11 +5,12 @@ on:
     branches: [ main ]
   pull_request:
     branches: [ main ]
-  workflow_dispatch:  # 允许手动触发
+  workflow_dispatch:
 
 jobs:
   build:
     runs-on: macos-latest
+    timeout-minutes: 30
     
     steps:
     - name: Checkout code
@@ -19,6 +20,7 @@ jobs:
       uses: actions/setup-python@v4
       with:
         python-version: '3.11'
+        cache: 'pip'
         
     - name: Install dependencies
       run: |
@@ -31,12 +33,6 @@ jobs:
         pip install pyinstaller
         echo "PyInstaller installed successfully"
         
-    - name: Check Python environment
-      run: |
-        python --version
-        pip list
-        echo "Python environment check completed"
-        
     - name: Install UPX (for compression)
       run: |
         brew install upx
@@ -45,9 +41,6 @@ jobs:
     - name: Build optimized App
       run: |
         echo "Starting PyInstaller build..."
-        echo "Current directory: $PWD"
-        echo "Files in current directory:"
-        ls -la
         
         # 使用优化的打包配置
         pyinstaller --onefile --windowed --name=FileRenamer \
@@ -84,8 +77,6 @@ jobs:
           file_renamer_gui.py
           
         echo "PyInstaller build completed"
-        echo "Files in dist directory:"
-        ls -la dist
         
     - name: Check file size
       run: |
@@ -102,9 +93,7 @@ jobs:
             echo "Success: File size is within expected range"
           fi
         else
-          echo "Error: App file not found in dist directory"
-          echo "Contents of dist directory:"
-          ls -la dist
+          echo "Error: App file not found"
           exit 1
         fi
         
@@ -118,11 +107,7 @@ jobs:
     - name: Create release info
       run: |
         version=$(date +"%Y.%m.%d")
-        if [ -f "dist/FileRenamer" ]; then
-          size=$(ls -lh dist/FileRenamer | awk '{print $5}')
-        else
-          size="N/A"
-        fi
+        size=$(ls -lh dist/FileRenamer | awk '{print $5}')
         
         cat > release-notes-macos.md << EOF
         # FileRenamer macOS App
@@ -146,10 +131,7 @@ jobs:
         ## System Requirements:
         - macOS 10.15+ (Catalina or later)
         - No additional Python installation required
-        - Tesseract OCR engine (if using OCR features)
         EOF
-        
-        echo "Release notes created successfully"
         
     - name: Upload macOS release notes
       uses: actions/upload-artifact@v4
