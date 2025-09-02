@@ -3,13 +3,17 @@ FROM python:3.11-slim
 # 设置工作目录
 WORKDIR /app
 
+# 使用国内镜像源加速
+RUN echo "deb https://mirrors.aliyun.com/debian/ trixie main" > /etc/apt/sources.list && \
+    echo "deb https://mirrors.aliyun.com/debian/ trixie-updates main" >> /etc/apt/sources.list && \
+    echo "deb https://mirrors.aliyun.com/debian-security trixie-security main" >> /etc/apt/sources.list
+
 # 安装系统依赖
 RUN apt-get update && apt-get install -y \
     tesseract-ocr \
     tesseract-ocr-chi-sim \
     tesseract-ocr-eng \
     libopencv-dev \
-    libgl1-mesa-glx \
     libglib2.0-0 \
     libsm6 \
     libxext6 \
@@ -26,22 +30,21 @@ RUN apt-get update && apt-get install -y \
     libjpeg-dev \
     libpng-dev \
     libtiff-dev \
-    libatlas-base-dev \
     gfortran \
     wget \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# 复制requirements文件
+# 先复制requirements文件
 COPY requirements.txt requirements_gui.txt ./
 
-# 安装Python依赖
-RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir -r requirements.txt && \
-    pip install --no-cache-dir -r requirements_gui.txt && \
-    pip install --no-cache-dir pyinstaller
+# 使用国内pip源加速Python包安装
+RUN pip install --no-cache-dir --upgrade pip -i https://pypi.tuna.tsinghua.edu.cn/simple/ && \
+    pip install --no-cache-dir -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple/ && \
+    pip install --no-cache-dir -r requirements_gui.txt -i https://pypi.tuna.tsinghua.edu.cn/simple/ && \
+    pip install --no-cache-dir pyinstaller -i https://pypi.tuna.tsinghua.edu.cn/simple/
 
-# 复制应用代码
+# 复制其余应用代码
 COPY . .
 
 # 设置环境变量

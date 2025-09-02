@@ -28,6 +28,8 @@ cp requirements_gui.txt $BUILD_DIR/
 cp app_config.json $BUILD_DIR/
 cp config.json $BUILD_DIR/
 cp .gitignore $BUILD_DIR/
+cp Dockerfile $BUILD_DIR/
+cp .dockerignore $BUILD_DIR/
 
 # 复制test_file目录（如果存在）
 if [ -d "test_file" ]; then

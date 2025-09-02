@@ -8,7 +8,6 @@ __pycache__/
 
 # 虚拟环境
 .venv/
-
 venv/
 env/
 
@@ -32,9 +31,19 @@ Thumbs.db
 
 # 构建/打包产物（防止大文件入库）
 dist/
-build/
+build/*/
+!build/macos/
 *.spec
 *.app/
 *.pkg
 *.dmg
 *.exe
+
+# 构建产物文件
+FileRenamer
+FileRenamer_linux
+FileRenamer.exe
+
+# Docker构建缓存
+docker_build/
+docker_build_*/

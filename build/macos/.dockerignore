@@ -31,8 +31,10 @@ dist/
 
 # 文档
 *.md
-*.txt
 *.pdf
+
+# 保留requirements文件
+!requirements*.txt
 
 # 测试文件
 test_*
