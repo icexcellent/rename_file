@@ -63,63 +63,58 @@ jobs:
         echo "🔍 使用EasyOCR自动下载模型文件..."
         
         # 创建Python脚本来下载模型
-        $downloadScript = @"
-import easyocr
-import os
-import time
-
-print("🚀 开始使用EasyOCR自动下载模型...")
-
-try:
-    print("📥 正在下载中文简体模型...")
-    reader_ch = easyocr.Reader(['ch_sim'], gpu=False)
-    print("✅ 中文简体模型下载完成")
-    
-    print("📥 正在下载英文模型...")
-    reader_en = easyocr.Reader(['en'], gpu=False)
-    print("✅ 英文模型下载完成")
-    
-    # 检查模型文件
-    home_dir = os.path.expanduser("~")
-    easyocr_dir = os.path.join(home_dir, ".EasyOCR")
-    
-    if os.path.exists(easyocr_dir):
-        files = os.listdir(easyocr_dir)
-        pth_files = [f for f in files if f.endswith('.pth')]
-        print(f"🎯 找到模型文件: {pth_files}")
-        
-        total_size = 0
-        for model in pth_files:
-            model_path = os.path.join(easyocr_dir, model)
-            size = os.path.getsize(model_path) / (1024*1024)
-            total_size += size
-            print(f"   {model}: {size:.1f} MB")
-        
-        print(f"📏 总大小: {total_size:.1f} MB")
-        
-        # 复制模型文件到当前目录
-        import shutil
-        models_dir = "easyocr_models"
-        if not os.path.exists(models_dir):
-            os.makedirs(models_dir)
-        
-        for model in pth_files:
-            src = os.path.join(easyocr_dir, model)
-            dst = os.path.join(models_dir, model)
-            shutil.copy2(src, dst)
-            print(f"📋 复制 {model} 到 {models_dir}")
-        
-        print("🎉 模型文件准备完成！")
-    else:
-        print("❌ EasyOCR模型目录不存在")
-        
-except Exception as e:
-    print(f"❌ 模型下载失败: {e}")
-    exit(1)
-"@
-        
-        # 保存脚本
-        $downloadScript | Out-File -FilePath "download_models.py" -Encoding UTF8
+        echo 'import easyocr' > download_models.py
+        echo 'import os' >> download_models.py
+        echo 'import time' >> download_models.py
+        echo '' >> download_models.py
+        echo 'print("🚀 开始使用EasyOCR自动下载模型...")' >> download_models.py
+        echo '' >> download_models.py
+        echo 'try:' >> download_models.py
+        echo '    print("📥 正在下载中文简体模型...")' >> download_models.py
+        echo '    reader_ch = easyocr.Reader(["ch_sim"], gpu=False)' >> download_models.py
+        echo '    print("✅ 中文简体模型下载完成")' >> download_models.py
+        echo '' >> download_models.py
+        echo '    print("📥 正在下载英文模型...")' >> download_models.py
+        echo '    reader_en = easyocr.Reader(["en"], gpu=False)' >> download_models.py
+        echo '    print("✅ 英文模型下载完成")' >> download_models.py
+        echo '' >> download_models.py
+        echo '    # 检查模型文件' >> download_models.py
+        echo '    home_dir = os.path.expanduser("~")' >> download_models.py
+        echo '    easyocr_dir = os.path.join(home_dir, ".EasyOCR")' >> download_models.py
+        echo '' >> download_models.py
+        echo '    if os.path.exists(easyocr_dir):' >> download_models.py
+        echo '        files = os.listdir(easyocr_dir)' >> download_models.py
+        echo '        pth_files = [f for f in files if f.endswith(".pth")]' >> download_models.py
+        echo '        print(f"🎯 找到模型文件: {pth_files}")' >> download_models.py
+        echo '' >> download_models.py
+        echo '        total_size = 0' >> download_models.py
+        echo '        for model in pth_files:' >> download_models.py
+        echo '            model_path = os.path.join(easyocr_dir, model)' >> download_models.py
+        echo '            size = os.path.getsize(model_path) / (1024*1024)' >> download_models.py
+        echo '            total_size += size' >> download_models.py
+        echo '            print(f"   {model}: {size:.1f} MB")' >> download_models.py
+        echo '' >> download_models.py
+        echo '        print(f"📏 总大小: {total_size:.1f} MB")' >> download_models.py
+        echo '' >> download_models.py
+        echo '        # 复制模型文件到当前目录' >> download_models.py
+        echo '        import shutil' >> download_models.py
+        echo '        models_dir = "easyocr_models"' >> download_models.py
+        echo '        if not os.path.exists(models_dir):' >> download_models.py
+        echo '            os.makedirs(models_dir)' >> download_models.py
+        echo '' >> download_models.py
+        echo '        for model in pth_files:' >> download_models.py
+        echo '            src = os.path.join(easyocr_dir, model)' >> download_models.py
+        echo '            dst = os.path.join(models_dir, model)' >> download_models.py
+        echo '            shutil.copy2(src, dst)' >> download_models.py
+        echo '            print(f"📋 复制 {model} 到 {models_dir}")' >> download_models.py
+        echo '' >> download_models.py
+        echo '        print("🎉 模型文件准备完成！")' >> download_models.py
+        echo '    else:' >> download_models.py
+        echo '        print("❌ EasyOCR模型目录不存在")' >> download_models.py
+        echo '' >> download_models.py
+        echo 'except Exception as e:' >> download_models.py
+        echo '    print(f"❌ 模型下载失败: {e}")' >> download_models.py
+        echo '    exit(1)' >> download_models.py
         
         # 运行脚本
         python download_models.py
