@@ -86,6 +86,15 @@ jobs:
           --hidden-import=urllib3.poolmanager \
           --hidden-import=urllib3.connection \
           --hidden-import=urllib3.response \
+          --hidden-import=pyparsing \
+          --hidden-import=packaging \
+          --hidden-import=packaging.requirements \
+          --hidden-import=packaging.specifiers \
+          --hidden-import=packaging.version \
+          --hidden-import=packaging.markers \
+          --hidden-import=pkg_resources \
+          --hidden-import=pkg_resources._vendor \
+          --hidden-import=pkg_resources.extern \
           file_renamer_gui.py
           
         echo "PyInstaller build completed"
