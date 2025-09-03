@@ -245,7 +245,28 @@ jobs:
         
         # 现在进行正式的--onefile构建
         echo "Starting final --onefile build..."
+        
+        # 使用更可靠的数据文件包含方法
+        # 方法1：使用绝对路径
         pyinstaller --onefile --windowed --name=FileRenamer --clean --add-data "$modelsDir;easyocr_models" file_renamer_gui.py
+        
+        # 如果方法1失败，尝试方法2：使用相对路径
+        if (-not (Test-Path "dist\FileRenamer.exe") -or (Get-Item "dist\FileRenamer.exe").Length -lt 100MB) {
+            echo "Method 1 failed, trying method 2 with relative path..."
+            pyinstaller --onefile --windowed --name=FileRenamer --clean --add-data "easyocr_models;easyocr_models" file_renamer_gui.py
+        }
+        
+        # 如果方法2也失败，尝试方法3：使用datas参数
+        if (-not (Test-Path "dist\FileRenamer.exe") -or (Get-Item "dist\FileRenamer.exe").Length -lt 100MB) {
+            echo "Method 2 failed, trying method 3 with datas parameter..."
+            pyinstaller --onefile --windowed --name=FileRenamer --clean --datas "easyocr_models;easyocr_models" file_renamer_gui.py
+        }
+        
+        # 如果所有方法都失败，尝试方法4：使用collect-all
+        if (-not (Test-Path "dist\FileRenamer.exe") -or (Get-Item "dist\FileRenamer.exe").Length -lt 100MB) {
+            echo "Method 3 failed, trying method 4 with collect-all..."
+            pyinstaller --onefile --windowed --name=FileRenamer --clean --collect-all "easyocr_models" file_renamer_gui.py
+        }
         
         # 验证EXE是否包含模型文件
         if (Test-Path "dist\FileRenamer.exe") {
