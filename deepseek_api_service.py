@@ -341,12 +341,9 @@ class DeepSeekAPIService:
     def _extract_text_with_ocr(self, image_path: Path) -> Optional[str]:
         """使用 EasyOCR 识别图片文本"""
         try:
-            import easyocr
-            import cv2
-            import threading
-            import time
-            import os
+            # 添加全局异常保护
             import sys
+            import traceback
             
             self._log("开始导入 EasyOCR 模块...")
             
@@ -484,6 +481,11 @@ class DeepSeekAPIService:
                     self._log(f"EasyOCR Reader 初始化失败: {e}")
                     self._log(f"异常类型: {type(e).__name__}")
                     self._log(f"异常详情: {str(e)}")
+                    # 添加详细的异常堆栈信息
+                    self._log("异常堆栈:")
+                    for line in traceback.format_exc().split('\n'):
+                        if line.strip():
+                            self._log(f"  {line}")
             
             # 启动初始化线程
             init_thread = threading.Thread(target=init_easyocr)
@@ -530,9 +532,14 @@ class DeepSeekAPIService:
             self._log("开始 OCR 识别...")
             
             # 读取图片
-            image = cv2.imread(str(image_path))
-            if image is None:
-                self._log("无法读取图片")
+            try:
+                image = cv2.imread(str(image_path))
+                if image is None:
+                    self._log("无法读取图片")
+                    return None
+                self._log(f"图片读取成功，尺寸: {image.shape}")
+            except Exception as e:
+                self._log(f"图片读取失败: {e}")
                 return None
             
             # 进行 OCR 识别，也添加超时保护
@@ -542,19 +549,26 @@ class DeepSeekAPIService:
             def run_ocr():
                 nonlocal ocr_results, ocr_error
                 try:
+                    self._log("开始执行OCR识别...")
                     ocr_results = reader.readtext(image)
+                    self._log(f"OCR识别完成，结果数量: {len(ocr_results)}")
                 except Exception as e:
                     ocr_error = e
-                    self._log(f"OCR 识别过程出错: {e}")
-                    self._log(f"错误类型: {type(e).__name__}")
-                    self._log(f"错误信息: {str(e)}")
+                    self._log(f"OCR识别失败: {e}")
+                    self._log(f"异常类型: {type(e).__name__}")
+                    self._log(f"异常详情: {str(e)}")
+                    # 添加详细的异常堆栈信息
+                    self._log("异常堆栈:")
+                    for line in traceback.format_exc().split('\n'):
+                        if line.strip():
+                            self._log(f"  {line}")
             
-            # 启动OCR识别线程
+            # 启动OCR线程
             ocr_thread = threading.Thread(target=run_ocr)
             ocr_thread.daemon = True
             ocr_thread.start()
             
-            # 等待OCR识别完成，最多等待120秒
+            # 等待OCR完成，设置超时
             ocr_timeout = 120
             ocr_start_time = time.time()
             while ocr_thread.is_alive() and (time.time() - ocr_start_time) < ocr_timeout:
@@ -565,38 +579,65 @@ class DeepSeekAPIService:
                     self._log(f"OCR 识别进行中... ({elapsed}/{ocr_timeout}秒)")
             
             if ocr_thread.is_alive():
-                self._log(f"EasyOCR 识别超时（{ocr_timeout}秒）")
+                self._log(f"OCR 识别超时（{ocr_timeout}秒）")
                 return None
             
             if ocr_error:
-                self._log(f"EasyOCR 识别出错，停止执行")
+                self._log(f"OCR 识别出错: {ocr_error}")
                 return None
             
             if ocr_results is None:
-                self._log("EasyOCR 识别结果为空")
+                self._log("OCR 识别未返回结果")
                 return None
             
-            # 提取识别的文本
-            texts = []
-            for (bbox, text, prob) in ocr_results:
-                if prob > 0.5:  # 只保留置信度大于 0.5 的文本
-                    texts.append(text.strip())
-            
-            # 合并所有识别的文本
-            full_text = ' '.join(texts)
-            self._log(f"EasyOCR 识别完成，共识别 {len(texts)} 个文本块")
-            
-            return full_text
-            
-        except ImportError as e:
-            self._log(f"EasyOCR 模块导入失败: {e}")
-            self._log(f"导入错误类型: {type(e).__name__}")
-            self._log(f"导入错误详情: {str(e)}")
-            return None
+            # 提取文本内容
+            try:
+                text_parts = []
+                for bbox, text, prob in ocr_results:
+                    if text.strip() and prob > 0.1:  # 过滤低置信度的结果
+                        text_parts.append(text.strip())
+                
+                if not text_parts:
+                    self._log("OCR 识别结果为空或置信度过低")
+                    return None
+                
+                full_text = " ".join(text_parts)
+                self._log(f"OCR 识别成功，文本长度: {len(full_text)}")
+                self._log(f"OCR 识别内容: {full_text[:200]}{'...' if len(full_text) > 200 else ''}")
+                
+                return full_text
+                
+            except Exception as e:
+                self._log(f"文本提取失败: {e}")
+                return None
+                
         except Exception as e:
-            self._log(f"EasyOCR 处理过程中出现未知错误: {e}")
-            self._log(f"未知错误类型: {type(e).__name__}")
-            self._log(f"未知错误详情: {str(e)}")
+            # 全局异常保护
+            self._log(f"OCR处理过程中发生未预期的异常: {e}")
+            self._log(f"异常类型: {type(e).__name__}")
+            self._log(f"异常详情: {str(e)}")
+            # 添加详细的异常堆栈信息
+            self._log("异常堆栈:")
+            for line in traceback.format_exc().split('\n'):
+                if line.strip():
+                    self._log(f"  {line}")
+            return None
+        except KeyboardInterrupt:
+            # 处理用户中断
+            self._log("OCR处理被用户中断")
+            return None
+        except SystemExit:
+            # 处理系统退出
+            self._log("OCR处理被系统中断")
+            return None
+        except:
+            # 捕获所有其他异常
+            self._log("OCR处理过程中发生未知异常")
+            import traceback
+            self._log("异常堆栈:")
+            for line in traceback.format_exc().split('\n'):
+                if line.strip():
+                    self._log(f"  {line}")
             return None
     
     def _extract_text_with_tesseract(self, image_path: Path) -> Optional[str]:
