@@ -199,8 +199,42 @@ jobs:
         
     - name: Build Windows EXE
       run: |
+        # 验证模型文件存在
+        if (Test-Path "easyocr_models") {
+            $models = Get-ChildItem "easyocr_models" -Filter "*.pth"
+            echo "Found $($models.Count) model files for packaging:"
+            foreach ($model in $models) {
+                $size = $model.Length / (1024*1024)
+                echo "   $($model.Name): $([math]::Round($size, 2)) MB"
+            }
+        } else {
+            echo "❌ easyocr_models directory not found!"
+            exit 1
+        }
+        
+        # 使用正确的Windows路径分隔符
         pyinstaller --onefile --windowed --name=FileRenamer --clean --add-data "easyocr_models;easyocr_models" file_renamer_gui.py
-          
+        
+        # 验证EXE是否包含模型文件
+        if (Test-Path "dist\FileRenamer.exe") {
+            echo "✅ EXE built successfully"
+            
+            # 检查EXE大小（应该包含模型文件）
+            $exeSize = (Get-Item "dist\FileRenamer.exe").Length / (1024*1024)
+            echo "EXE size: $([math]::Round($exeSize, 2)) MB"
+            
+            # 如果EXE大小小于100MB，可能模型文件没有包含
+            if ($exeSize -lt 100) {
+                echo "⚠️  Warning: EXE size seems small, models may not be included"
+                echo "Expected size: >100MB (with models), Actual size: $([math]::Round($exeSize, 2)) MB"
+            } else {
+                echo "✅ EXE size looks correct, models should be included"
+            }
+        } else {
+            echo "❌ EXE build failed"
+            exit 1
+        }
+        
     - name: Check build result
       run: |
         if (Test-Path "dist\FileRenamer.exe") {
