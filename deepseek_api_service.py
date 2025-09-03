@@ -346,23 +346,52 @@ class DeepSeekAPIService:
             import threading
             import time
             import os
+            import sys
             
             self._log("开始导入 EasyOCR 模块...")
             
-            # 检查本地模型文件
-            local_models_dir = Path("easyocr_models")
-            if local_models_dir.exists():
-                self._log(f"发现本地模型目录: {local_models_dir.absolute()}")
-                model_files = list(local_models_dir.glob("*.pth"))
-                if model_files:
-                    self._log(f"本地模型文件: {[f.name for f in model_files]}")
-                    # 设置环境变量指向本地模型目录
-                    os.environ['EASYOCR_MODULE_PATH'] = str(local_models_dir.absolute())
-                    self._log("已设置EASYOCR_MODULE_PATH环境变量")
+            # 检查模型文件位置（优先级：EXE内 > 当前目录 > 用户目录）
+            model_dirs = []
+            
+            # 1. 检查EXE内的模型文件（最高优先级）
+            if getattr(sys, 'frozen', False):
+                # 如果是打包后的EXE
+                exe_dir = os.path.dirname(sys.executable)
+                exe_models_dir = os.path.join(exe_dir, "easyocr_models")
+                model_dirs.append(("EXE内模型目录", exe_models_dir))
+                self._log(f"检测到EXE运行，检查EXE内模型: {exe_models_dir}")
+            
+            # 2. 检查当前工作目录的模型文件
+            current_models_dir = Path("easyocr_models")
+            model_dirs.append(("当前目录模型", str(current_models_dir.absolute())))
+            
+            # 3. 检查用户目录的模型文件（最低优先级）
+            home_dir = os.path.expanduser("~")
+            user_models_dir = os.path.join(home_dir, ".EasyOCR")
+            model_dirs.append(("用户目录模型", user_models_dir))
+            
+            # 查找可用的模型文件
+            local_models_dir = None
+            for desc, model_dir in model_dirs:
+                self._log(f"检查{desc}: {model_dir}")
+                if os.path.exists(model_dir):
+                    model_files = list(Path(model_dir).glob("*.pth"))
+                    if model_files:
+                        self._log(f"✅ 在{desc}找到模型文件: {[f.name for f in model_files]}")
+                        local_models_dir = Path(model_dir)
+                        break
+                    else:
+                        self._log(f"❌ {desc}存在但无模型文件")
                 else:
-                    self._log("本地模型目录为空，将使用默认下载")
+                    self._log(f"❌ {desc}不存在")
+            
+            if local_models_dir:
+                self._log(f"使用模型目录: {local_models_dir.absolute()}")
+                # 设置环境变量指向本地模型目录
+                os.environ['EASYOCR_MODULE_PATH'] = str(local_models_dir.absolute())
+                self._log("已设置EASYOCR_MODULE_PATH环境变量")
             else:
-                self._log("未发现本地模型目录，将使用默认下载")
+                self._log("未发现任何本地模型文件，将使用默认下载")
             
             # 使用线程和超时机制来防止EasyOCR初始化卡住
             reader = None
@@ -372,7 +401,7 @@ class DeepSeekAPIService:
                 nonlocal reader, init_error
                 try:
                     self._log("正在初始化 EasyOCR Reader...")
-                    if local_models_dir.exists() and list(local_models_dir.glob("*.pth")):
+                    if local_models_dir and list(local_models_dir.glob("*.pth")):
                         self._log("使用本地模型文件初始化...")
                         reader = easyocr.Reader(['ch_sim', 'en'], gpu=False, model_storage_directory=str(local_models_dir.absolute()))
                     else:
@@ -392,7 +421,7 @@ class DeepSeekAPIService:
             init_thread.start()
             
             # 等待初始化完成，本地模型60秒，网络下载120秒
-            timeout = 120 if not (local_models_dir.exists() and list(local_models_dir.glob("*.pth"))) else 60
+            timeout = 120 if not (local_models_dir and list(local_models_dir.glob("*.pth"))) else 60
             start_time = time.time()
             while init_thread.is_alive() and (time.time() - start_time) < timeout:
                 time.sleep(1)
@@ -404,7 +433,10 @@ class DeepSeekAPIService:
             if init_thread.is_alive():
                 # 超时，记录超时信息
                 self._log(f"EasyOCR 初始化超时（{timeout}秒）")
-                self._log("建议：检查网络连接或使用本地模型文件")
+                if local_models_dir:
+                    self._log("本地模型存在但初始化超时，可能是模型文件损坏")
+                else:
+                    self._log("建议：检查网络连接或使用本地模型文件")
                 return None
             
             if init_error:
