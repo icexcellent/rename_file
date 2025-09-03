@@ -212,8 +212,40 @@ jobs:
             exit 1
         }
         
-        # 使用正确的Windows路径分隔符
-        pyinstaller --onefile --windowed --name=FileRenamer --clean --add-data "easyocr_models;easyocr_models" file_renamer_gui.py
+        # 获取当前工作目录的绝对路径
+        $currentDir = Get-Location
+        $modelsDir = Join-Path $currentDir "easyocr_models"
+        echo "Current directory: $currentDir"
+        echo "Models directory: $modelsDir"
+        
+        # 验证模型目录存在
+        if (Test-Path $modelsDir) {
+            echo "✅ Models directory exists and is accessible"
+        } else {
+            echo "❌ Models directory not accessible"
+            exit 1
+        }
+        
+        # 使用绝对路径和正确的Windows语法
+        echo "Starting PyInstaller build with models..."
+        echo "PyInstaller command: pyinstaller --onefile --windowed --name=FileRenamer --clean --add-data '$modelsDir;easyocr_models' file_renamer_gui.py"
+        
+        # 先尝试不带--onefile的构建来验证数据文件包含
+        echo "Testing data file inclusion with --onedir first..."
+        pyinstaller --onedir --windowed --name=FileRenamer_test --clean --add-data "$modelsDir;easyocr_models" file_renamer_gui.py
+        
+        # 检查onedir构建结果
+        if (Test-Path "dist\FileRenamer_test\easyocr_models") {
+            echo "✅ --onedir build successfully included models"
+            $testModels = Get-ChildItem "dist\FileRenamer_test\easyocr_models" -Filter "*.pth"
+            echo "Test build models: $($testModels.Count)"
+        } else {
+            echo "❌ --onedir build failed to include models"
+        }
+        
+        # 现在进行正式的--onefile构建
+        echo "Starting final --onefile build..."
+        pyinstaller --onefile --windowed --name=FileRenamer --clean --add-data "$modelsDir;easyocr_models" file_renamer_gui.py
         
         # 验证EXE是否包含模型文件
         if (Test-Path "dist\FileRenamer.exe") {
