@@ -353,53 +353,65 @@ class DeepSeekAPIService:
             # 检查模型文件位置（优先级：EXE内 > 当前目录 > 用户目录）
             model_dirs = []
             
-            # 1. 检查EXE内的模型文件（最高优先级）
-            if getattr(sys, 'frozen', False):
-                # 如果是打包后的EXE
-                exe_dir = os.path.dirname(sys.executable)
-                self._log(f"检测到EXE运行，EXE目录: {exe_dir}")
-                
-                # 1.1 检查EXE同级目录的easyocr_models
-                exe_models_dir = os.path.join(exe_dir, "easyocr_models")
-                model_dirs.append(("EXE内模型目录", exe_models_dir))
-                self._log(f"检查EXE内模型: {exe_models_dir}")
-                
-                # 1.2 检查PyInstaller临时目录（_MEIPASS）
-                if hasattr(sys, '_MEIPASS'):
-                    meipass_models = os.path.join(sys._MEIPASS, "easyocr_models")
-                    model_dirs.append(("PyInstaller临时目录", meipass_models))
-                    self._log(f"检查PyInstaller临时目录: {meipass_models}")
-                
-                # 1.3 检查EXE目录的父目录
-                exe_parent = os.path.dirname(exe_dir)
-                exe_parent_models = os.path.join(exe_parent, "easyocr_models")
-                model_dirs.append(("EXE父目录模型", exe_parent_models))
-                
-                # 1.4 检查系统临时目录（PyInstaller可能将文件解压到这里）
-                import tempfile
-                temp_dir = tempfile.gettempdir()
-                temp_models_dir = os.path.join(temp_dir, "easyocr_models")
-                model_dirs.append(("系统临时目录", temp_models_dir))
-                
-                # 1.5 检查Windows特定的临时目录
-                if os.name == 'nt':
-                    windows_temp = os.environ.get('TEMP', temp_dir)
-                    windows_temp_models = os.path.join(windows_temp, "easyocr_models")
-                    model_dirs.append(("Windows临时目录", windows_temp_models))
+            try:
+                # 1. 检查EXE内的模型文件（最高优先级）
+                if getattr(sys, 'frozen', False):
+                    # 如果是打包后的EXE
+                    exe_dir = os.path.dirname(sys.executable)
+                    self._log(f"检测到EXE运行，EXE目录: {exe_dir}")
                     
-                    # 检查AppData\Local\Temp
-                    appdata_local = os.path.join(home_dir, "AppData", "Local", "Temp")
-                    appdata_temp_models = os.path.join(appdata_local, "easyocr_models")
-                    model_dirs.append(("AppData临时目录", appdata_temp_models))
-            
-            # 2. 检查当前工作目录的模型文件
-            current_models_dir = Path("easyocr_models")
-            model_dirs.append(("当前目录模型", str(current_models_dir.absolute())))
-            
-            # 3. 检查用户目录的模型文件（最低优先级）
-            home_dir = os.path.expanduser("~")
-            user_models_dir = os.path.join(home_dir, ".EasyOCR")
-            model_dirs.append(("用户目录模型", user_models_dir))
+                    # 1.1 检查EXE同级目录的easyocr_models
+                    exe_models_dir = os.path.join(exe_dir, "easyocr_models")
+                    model_dirs.append(("EXE内模型目录", exe_models_dir))
+                    self._log(f"检查EXE内模型: {exe_models_dir}")
+                    
+                    # 1.2 检查PyInstaller临时目录（_MEIPASS）- 这是关键位置
+                    if hasattr(sys, '_MEIPASS'):
+                        meipass_models = os.path.join(sys._MEIPASS, "easyocr_models")
+                        model_dirs.append(("PyInstaller临时目录", meipass_models))
+                        self._log(f"检查PyInstaller临时目录: {meipass_models}")
+                    
+                    # 1.3 检查EXE目录的父目录
+                    try:
+                        exe_parent = os.path.dirname(exe_dir)
+                        exe_parent_models = os.path.join(exe_parent, "easyocr_models")
+                        model_dirs.append(("EXE父目录模型", exe_parent_models))
+                    except Exception as e:
+                        self._log(f"检查EXE父目录时出错: {e}")
+                
+                # 2. 检查当前工作目录的模型文件
+                try:
+                    current_models_dir = Path("easyocr_models")
+                    model_dirs.append(("当前目录模型", str(current_models_dir.absolute())))
+                except Exception as e:
+                    self._log(f"检查当前目录时出错: {e}")
+                
+                # 3. 检查用户目录的模型文件
+                try:
+                    home_dir = os.path.expanduser("~")
+                    user_models_dir = os.path.join(home_dir, ".EasyOCR")
+                    model_dirs.append(("用户目录模型", user_models_dir))
+                except Exception as e:
+                    self._log(f"检查用户目录时出错: {e}")
+                
+                # 4. 检查系统临时目录（简化版本）
+                try:
+                    import tempfile
+                    temp_dir = tempfile.gettempdir()
+                    temp_models_dir = os.path.join(temp_dir, "easyocr_models")
+                    model_dirs.append(("系统临时目录", temp_models_dir))
+                except Exception as e:
+                    self._log(f"检查系统临时目录时出错: {e}")
+                
+            except Exception as e:
+                self._log(f"模型目录检查过程中出错: {e}")
+                # 如果出错，使用最基本的检查
+                model_dirs = []
+                if getattr(sys, 'frozen', False):
+                    exe_dir = os.path.dirname(sys.executable)
+                    exe_models_dir = os.path.join(exe_dir, "easyocr_models")
+                    model_dirs.append(("EXE内模型目录", exe_models_dir))
+                model_dirs.append(("当前目录模型", "easyocr_models"))
             
             # 查找可用的模型文件
             local_models_dir = None
@@ -407,31 +419,41 @@ class DeepSeekAPIService:
             self._log("🔍 开始搜索EasyOCR模型文件...")
             self._log("=" * 50)
             
-            for desc, model_dir in model_dirs:
-                self._log(f"检查{desc}: {model_dir}")
-                if os.path.exists(model_dir):
-                    if os.path.isdir(model_dir):
-                        model_files = list(Path(model_dir).glob("*.pth"))
-                        if model_files:
-                            self._log(f"✅ 在{desc}找到模型文件: {[f.name for f in model_files]}")
-                            # 显示文件大小
-                            total_size = sum(f.stat().st_size for f in model_files) / (1024*1024)
-                            self._log(f"   模型文件总大小: {total_size:.1f} MB")
-                            local_models_dir = Path(model_dir)
-                            break
+            try:
+                for desc, model_dir in model_dirs:
+                    try:
+                        self._log(f"检查{desc}: {model_dir}")
+                        if os.path.exists(model_dir):
+                            if os.path.isdir(model_dir):
+                                model_files = list(Path(model_dir).glob("*.pth"))
+                                if model_files:
+                                    self._log(f"✅ 在{desc}找到模型文件: {[f.name for f in model_files]}")
+                                    # 显示文件大小
+                                    total_size = sum(f.stat().st_size for f in model_files) / (1024*1024)
+                                    self._log(f"   模型文件总大小: {total_size:.1f} MB")
+                                    local_models_dir = Path(model_dir)
+                                    break
+                                else:
+                                    self._log(f"❌ {desc}存在但无模型文件")
+                            else:
+                                self._log(f"❌ {desc}存在但不是目录")
                         else:
-                            self._log(f"❌ {desc}存在但无模型文件")
-                    else:
-                        self._log(f"❌ {desc}存在但不是目录")
-                else:
-                    self._log(f"❌ {desc}不存在")
+                            self._log(f"❌ {desc}不存在")
+                    except Exception as e:
+                        self._log(f"检查{desc}时出错: {e}")
+                        continue
+            except Exception as e:
+                self._log(f"模型文件搜索过程中出错: {e}")
             
             self._log("=" * 50)
             if local_models_dir:
                 self._log(f"🎯 使用模型目录: {local_models_dir.absolute()}")
-                # 设置环境变量指向本地模型目录
-                os.environ['EASYOCR_MODULE_PATH'] = str(local_models_dir.absolute())
-                self._log("已设置EASYOCR_MODULE_PATH环境变量")
+                try:
+                    # 设置环境变量指向本地模型目录
+                    os.environ['EASYOCR_MODULE_PATH'] = str(local_models_dir.absolute())
+                    self._log("已设置EASYOCR_MODULE_PATH环境变量")
+                except Exception as e:
+                    self._log(f"设置环境变量时出错: {e}")
             else:
                 self._log("❌ 未发现任何本地模型文件，将使用默认下载")
                 self._log("💡 建议：检查EXE是否包含模型文件，或手动下载模型到用户目录")
