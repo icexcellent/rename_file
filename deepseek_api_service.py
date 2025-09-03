@@ -457,6 +457,11 @@ class DeepSeekAPIService:
             else:
                 self._log("❌ 未发现任何本地模型文件，将使用默认下载")
                 self._log("💡 建议：检查EXE是否包含模型文件，或手动下载模型到用户目录")
+                self._log("📋 解决方案：")
+                self._log("   1. 重新构建EXE（确保包含模型文件）")
+                self._log("   2. 手动下载模型文件到 ~/.EasyOCR 目录")
+                self._log("   3. 将模型文件放在EXE同级的 easyocr_models 目录")
+                self._log("   4. 检查网络连接，确保可以访问EasyOCR服务器")
             
             # 使用线程和超时机制来防止EasyOCR初始化卡住
             reader = None
